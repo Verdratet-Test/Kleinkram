@@ -1,0 +1,6 @@
+{
+  "appId": "de.kleinkram.app",
+  "appName": "Kleinkram",
+  "webDir": "www",
+  "android": { "adjustMarginsForEdgeToEdge": "force" }
+}
