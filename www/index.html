@@ -404,6 +404,7 @@ function completeTask(id,silent){const t=S.tasks.find(x=>x.id===id);if(!t||t.don
  let n=15,why='Erledigt';if(t.due&&d<=t.due){n+=10;why='Erledigt, vor der Frist'}if(ageOf(t)>=2){n+=ageOf(t)*5;why='Altlast besiegt'}if(t.rid)n+=5;
  if(!t.example&&t.cost&&+t.cost.eur>0&&(!t.due||d<=t.due)){S.pot.entries.push({id:uid(),d,eur:+t.cost.eur,w:`${t.title}: ${t.cost.note||'Kosten vermieden'}`})}
  if(t.rid){const r=S.recurring.find(x=>x.id===t.rid);if(r&&r.lastGen===r.next){r.next=addMonths(r.next,r.every||12);while(r.next<=d)r.next=addMonths(r.next,r.every||12)}}
+ if(t.nkObj){const o=objById(t.nkObj);if(o){o.nkDone=o.nkDone||[];if(!o.nkDone.includes(t.nkYear))o.nkDone.push(t.nkYear)}}
  if(t.docId){const doc=S.docs.find(x=>x.id===t.docId);if(doc&&!doc.paid){doc.paid=true;doc.paidDate=d}}
  save();if(!silent)stamp();pts(n,why);if(!t.example&&t.cost&&+t.cost.eur>0&&(!t.due||d<=t.due))setTimeout(()=>toast(`${eur(t.cost.eur)} wandern in deinen Spar-Topf`),1500);render()}
 function postpone(t,toDate){t.postponed=(t.postponed||0)+1;t.due=toDate||addDays(today(),1);save()}
@@ -517,8 +518,8 @@ function qrSvg(text){if(typeof qrcode!=='function')return null;try{qrcode.string
 /* ---------- Steuer ---------- */
 const TAXT={none:'Nicht steuerrelevant',handwerker:'Handwerkerleistung (§ 35a)',haushalt:'Haushaltsnahe Dienstleistung (§ 35a)',werbung:'Werbungskosten / Beruf',sonstig:'Sonstiges für die Steuer'};
 function rates(y){const d={hw:{p:20,max:1200},hh:{p:20,max:4000}};return S.tax[y]?{hw:{...d.hw,...S.tax[y].hw},hh:{...d.hh,...S.tax[y].hh}}:d}
-function taxYear(y){const docs=S.docs.filter(d=>d.year==y);const hw=docs.filter(d=>d.taxType==='handwerker').reduce((a,d)=>a+(+d.labor||0),0);const hh=docs.filter(d=>d.taxType==='haushalt').reduce((a,d)=>a+(+d.labor||0),0);const wk=docs.filter(d=>d.taxType==='werbung').reduce((a,d)=>a+(+d.amount||0),0);const R=rates(y);
- return{hw,hh,wk,hwBack:Math.min(hw*R.hw.p/100,R.hw.max),hhBack:Math.min(hh*R.hh.p/100,R.hh.max),R,count:docs.filter(d=>d.taxType&&d.taxType!=='none').length}}
+function taxYear(y){const all=S.docs.filter(d=>d.year==y),docs=all.filter(d=>!isRentedDoc(d));const vm=objs().filter(isRented).map(o=>{const ds=all.filter(d=>d.objId===o.id);return{o,ds,sum:ds.reduce((a,d)=>a+(+d.amount||0),0),rent:Object.keys(o.payments||{}).filter(m=>m.startsWith(y+'-')).length*(+o.miete||0)}}).filter(x=>x.ds.length||x.rent);const hw=docs.filter(d=>d.taxType==='handwerker').reduce((a,d)=>a+(+d.labor||0),0);const hh=docs.filter(d=>d.taxType==='haushalt').reduce((a,d)=>a+(+d.labor||0),0);const wk=docs.filter(d=>d.taxType==='werbung').reduce((a,d)=>a+(+d.amount||0),0);const R=rates(y);
+ return{hw,hh,wk,hwBack:Math.min(hw*R.hw.p/100,R.hw.max),hhBack:Math.min(hh*R.hh.p/100,R.hh.max),R,vm,count:docs.filter(d=>d.taxType&&d.taxType!=='none').length+vm.reduce((a,x)=>a+x.ds.length,0)}}
 
 /* ---------- Zustand der Oberfläche ---------- */
 const UI={tab:'heute',month:today().slice(0,7),sel:today(),filter:new Set(Object.keys(CATS)),auf:'aufgaben',year:new Date().getFullYear(),docFilter:'alle',oneIdx:0,showAll:false};
@@ -550,8 +551,10 @@ function vHeute(){const t=today(),d=new Date();const hr=d.getHours();const greet
  const soon=S.recurring.filter(r=>r.next&&diff(t,r.next)>=0&&diff(t,r.next)<=45).sort((a,b)=>a.next.localeCompare(b.next));
  let h=head(`${greet}${S.name?`, ${esc(S.name)}`:''}`,fmtD(t,true)==='heute'?`${WDL[d.getDay()]}, ${d.getDate()}. ${MON[d.getMonth()]}`:fmtD(t,true));
  if(S.set.freizeit)h+=`<div class="freizeit${F.open?' open':''}"><div class="ic">${F.open?ICON.unlock:ICON.lock}</div><div class="grow"><h3>${F.open?'Freizeit ist frei':'Freizeit noch zu'}</h3><p class="small muted">${F.open?'TV, Zocken, Couch. Mit gutem Gewissen.':[F.left?`${F.left} Routine${F.left>1?'n':''}`:'',F.needTask?'eine Aufgabe anfangen':''].filter(Boolean).join(' und ')+' bis zur Freigabe'}</p></div></div>`;
+ if(reviewTarget())h+=`<div class="banner" style="margin-top:12px"><div class="grow"><h3>Wochen-Rückblick</h3><p class="small muted">5 Minuten: zurückschauen, 3 Ziele für nächste Woche. +20 Punkte.</p></div><button class="btn sm pri" data-act="review">Los</button></div>`;
  if(overdue.length>=3)h+=`<div class="banner" style="margin-top:12px"><div class="grow"><h3>${overdue.length} Sachen sind liegen geblieben</h3><p class="small muted">Passiert. Wir sortieren neu, ohne Vorwürfe.</p></div><button class="btn sm pri" data-act="restart">Frischer Start</button></div>`;
  buddies.forEach(x=>{h+=`<div class="banner" style="margin-top:12px"><div class="grow"><h3>${esc(x.buddy.name)} Bescheid geben?</h3><p class="small muted">„${esc(x.title)}“ ist noch nicht angefangen.</p></div><button class="btn sm" data-act="buddy" data-id="${x.id}">Nachricht</button></div>`});
+ {const wk=weekKey(t),goals=S.tasks.filter(x=>x.weekGoal===wk&&!x.archived);if(goals.length)h+=reg('Wochenziele',`${goals.filter(x=>x.done).length}/${goals.length}`,goals.map(x=>`<div class="li" data-act="task" data-id="${x.id}" style="cursor:pointer"><span class="chip ${x.done?'ok':'stamp'}">${x.done?'✓':'Ziel'}</span><div class="grow"><p style="${x.done?'text-decoration:line-through;color:var(--muted)':''}">${esc(x.title)}</p></div></div>`).join(''),true)}
  h+=reg('Deine eine Sache',null,one?`<div class="one" style="${cv(one.cat)}"><div class="row between"><span class="eyebrow">Nur das. Der Rest wartet.</span><span class="cat-chip" style="${cv(one.cat)}">${CATS[one.cat]}</span></div>
   <h2>${esc(one.title)}</h2>${one.cost&&+one.cost.eur>0&&one.due?`<p class="small lvl-${snow(one)}"><b>${SNOWTXT[snow(one)]}</b> · Aufschieben kostet ${eur(one.cost.eur)}</p>`:one.due?`<p class="small muted">fällig ${esc(fmtD(one.due))}</p>`:''}
   ${nextStep(one)?`<div class="step"><b>Jetzt:</b><span>${esc(nextStep(one).t)}</span></div>`:`<div class="step"><b>Tipp:</b><span>Zu groß? Lass sie dir in Mini-Schritte zerlegen.</span></div>`}
@@ -559,6 +562,7 @@ function vHeute(){const t=today(),d=new Date();const hr=d.getHours();const greet
   :`<div class="empty">Nichts offen. Trag ein, was dich nervt, mit dem Plus unten.</div>`);
  {const due=S.routines.filter(r=>rDue(r)),later=S.routines.filter(r=>!rDue(r));
  h+=reg('Routinen',`${due.filter(r=>r.days.includes(t)).length}/${due.length}`,S.routines.length?due.map(r=>{const on=r.days.includes(t),st=rStreak(r);return`<div class="li" data-rid="${r.id}"><button class="check${on?' on':''}" data-act="rt" data-id="${r.id}" aria-label="${esc(r.title)} abhaken">${ICON.check}</button><div class="grow"><p style="${on?'color:var(--muted)':''}">${esc(r.title)}</p>${r.freq&&r.freq!=='daily'?`<p class="small muted">${rLabel(r)}</p>`:''}</div>${on?'':rLink(r)}${st?`<span class="chip${st>=3?' stamp':''}">${ICON.flame}${st}</span>`:''}</div>`}).join('')+(later.length?`<p class="small muted" style="padding:6px 14px 8px">Später: ${later.map(r=>`${esc(r.title)} (${fmtD(rNext(r))})`).join(', ')}</p>`:'')+(allStreak()>1?`<p class="small muted" style="padding:6px 14px 8px">Alle Pflicht-Routinen ${allStreak()} Tage am Stück. Jeder weitere Tag gibt mehr Bonus.</p>`:''):`<div class="empty">Noch keine Routinen. Unter Aufgaben → Routinen anlegen.</div>`,true)}
+ {const rows=[];objs().filter(isRented).forEach(o=>rentOpen(o).forEach(r=>rows.push({o,...r})));if(rows.length)h+=reg('Miete prüfen',rows.length,rows.map(r=>`<div class="li"><span class="dot" style="${cv('verwaltung')}"></span><div class="grow"><p>${esc(r.o.name)}: ${MON[+r.m.slice(5)-1]}</p><p class="small muted">${r.o.miete?eur(r.o.miete)+' · ':''}${r.st==='late'?'über 10 Tage überfällig':'fällig seit '+fmtD(rentDue(r.o,r.m))}</p></div><button class="btn sm${r.st==='late'?'':' pri'}" data-act="rentT" data-id="${r.o.id}" data-m="${r.m}">Eingegangen</button></div>`).join(''),true)}
  const evRow=(e,day)=>`<div class="li" data-act="event" data-id="${e.id}" style="cursor:pointer"><span class="time">${e.time||(e.kind==='geburtstag'?'Geb.':'ganztg.')}</span><span class="dot" style="${cv(e.cat)}"></span><div class="grow"><p>${esc(evLabel(e,day))}</p></div></div>`;
  h+=reg('Termine',evT.length+evM.length,(evT.length?evT.map(e=>evRow(e,t)).join(''):'<div class="li"><p class="muted small">Heute keine Termine.</p></div>')+(evM.length?`<div class="li"><p class="small" style="font-weight:700;color:var(--muted)">Morgen</p></div>`+evM.map(e=>evRow(e,addDays(t,1))).join(''):''),true);
  if(bdays.length)h+=reg('Geburtstage bald',bdays.length,bdays.map(({e,day,k})=>`<div class="li"><span class="time">${k===0?'heute':k===1?'morgen':`in ${k} T.`}</span><div class="grow"><p>${esc(evLabel(e,day))}</p></div>${k>=2&&k<=7?'<span class="chip warn">Geschenk?</span>':''}</div>`).join(''),true);
@@ -597,21 +601,23 @@ function vAufgaben(){let h=head('Aufgaben',`${openTasks().length} offen`)+`<div 
  return h}
 
 function vAblage(){const y=UI.year;const years=[...new Set([new Date().getFullYear(),...S.docs.map(d=>+d.year)])].sort((a,b)=>b-a);const T=taxYear(y);
- let docs=S.docs.filter(d=>+d.year===y);if(UI.docFilter==='steuer')docs=docs.filter(d=>d.taxType&&d.taxType!=='none');if(UI.docFilter==='offen')docs=docs.filter(d=>d.kind==='rechnung'&&!d.paid);
+ let docs=S.docs.filter(d=>+d.year===y);if(UI.docFilter==='steuer')docs=docs.filter(d=>d.taxType&&d.taxType!=='none');if(UI.docFilter==='offen')docs=docs.filter(d=>d.kind==='rechnung'&&!d.paid);if(String(UI.docFilter).startsWith('obj:'))docs=docs.filter(d=>d.objId===UI.docFilter.slice(4));
  docs.sort((a,b)=>(b.date||'').localeCompare(a.date||''));
- const seg=`<div class="seg" style="margin-bottom:14px">${[['belege','Belege'],['vertraege','Verträge']].map(([k,l])=>`<button class="${(UI.abl||'belege')===k?'on':''}" data-act="abl" data-k="${k}">${l}</button>`).join('')}</div>`;
+ const seg=`<div class="seg" style="margin-bottom:14px">${[['belege','Belege'],['vertraege','Verträge'],['haus','Haus'],['garantie','Garantie']].map(([k,l])=>`<button class="${(UI.abl||'belege')===k?'on':''}" data-act="abl" data-k="${k}">${l}</button>`).join('')}</div>`;
  if(UI.abl==='vertraege')return head('Ablage',`${(S.contracts||[]).length} Verträge`)+seg+vVertraege();
+ if(UI.abl==='haus')return head('Ablage',`${objs().length} Objekt${objs().length===1?'':'e'}`)+seg+vHaus();
+ if(UI.abl==='garantie')return head('Ablage',`${(S.warranties||[]).length} Garantien`)+seg+vGarantie();
  let h=head('Ablage',`${S.docs.length} Dokumente`)+seg+`<div class="scan-row"><label class="scan-btn pri" for="scanInput">${ICON.cam}<span>Rechnung scannen</span><small>Foto → Überweisungsdaten + GiroCode</small></label><button class="scan-btn" data-act="newDoc">${ICON.doc}<span>Dokument ablegen</span><small>Brief, Bescheid, Vertrag</small></button></div>
  <input type="file" id="scanInput" accept="image/*" capture="environment" hidden>
  <button class="btn block ghost" data-act="pasteInv" style="margin-top:8px">Rechnungstext einfügen statt Foto</button>
  <div class="folders" style="margin-top:18px" role="tablist" aria-label="Jahresordner">${years.map(Y=>`<button class="folder${Y===y?' on':''}" data-act="year" data-y="${Y}">${Y}</button>`).join('')}</div>`;
- h+=reg(`Steuer ${y}`,T.count,`<div class="tax"><span>Handwerker-Arbeitskosten</span><span class="sum">${eur(T.hw)}</span><span>Haushaltsnahe Dienste (Arbeitskosten)</span><span class="sum">${eur(T.hh)}</span>${T.wk?`<span>Werbungskosten gesammelt</span><span class="sum">${eur(T.wk)}</span>`:''}
+ h+=reg(`Steuer ${y}`,T.count,`<div class="tax"><span>Handwerker-Arbeitskosten</span><span class="sum">${eur(T.hw)}</span><span>Haushaltsnahe Dienste (Arbeitskosten)</span><span class="sum">${eur(T.hh)}</span>${T.wk?`<span>Werbungskosten gesammelt</span><span class="sum">${eur(T.wk)}</span>`:''}${T.vm.map(x=>`<span>Vermietung ${esc(x.o.name)} (Anlage V)</span><span class="sum">${eur(x.sum)}</span>`).join('')}
  <span style="grid-column:1/-1;border-top:1px solid var(--line);margin:4px 0"></span><span><b>Voraussichtliche Steuerermäßigung</b><br><span class="small muted">${T.R.hw.p} % bis ${eur(T.R.hw.max)} · ${T.R.hh.p} % bis ${eur(T.R.hh.max)}</span></span><span class="sum big">${eur(T.hwBack+T.hhBack)}</span></div>
  <button class="btn" data-act="taxpack" data-y="${y}">Steuer-Paket ${y} erstellen</button>
  <p class="small muted">Zählt nur der Arbeitslohn (inkl. Fahrt, Maschinen), nicht das Material. Nur per Überweisung bezahlte Rechnungen. ${y>=2027?'Für 2027 plant die Regierung 15 % und max. 900 € bei Handwerkern (Entwurf). Sätze unter Ich → Steuersätze anpassen.':''}</p>`);
  h+=`<div class="seg" style="margin-top:18px">${[['alle','Alle'],['steuer','Steuer'],['offen','Unbezahlt']].map(([k,l])=>`<button class="${UI.docFilter===k?'on':''}" data-act="docf" data-k="${k}">${l}</button>`).join('')}</div>`;
  h+=`<input class="inp" id="docQ" type="search" placeholder="In der Ablage suchen, auch im Text" style="margin-top:10px" autocomplete="off">`;
- h+=`<div class="card" style="margin-top:10px;padding:4px 0">${docs.map(d=>`<div class="li" data-act="doc" data-id="${d.id}" data-s="${esc([d.title,d.payee,d.note,d.ref,d.raw].join(' ').toLowerCase())}" style="cursor:pointer">${d.hasImg?`<img class="thumb" data-img="${d.id}" alt="">`:`<span class="thumb" style="display:grid;place-items:center;color:var(--muted)">${ICON.doc}</span>`}<div class="grow"><p>${esc(d.title||d.payee||'Dokument')}</p><p class="small muted">${d.kind==='rechnung'?`${eur(d.amount)} · ${d.paid?'bezahlt':'offen'}`:'Dokument'}${d.taxType&&d.taxType!=='none'?` · ${esc(TAXT[d.taxType].split(' (')[0])}`:''}</p></div>${d.kind==='rechnung'&&!d.paid?'<span class="chip warn">offen</span>':''}</div>`).join('')||`<div class="empty">Ordner ${y} ist leer. Scanne deine erste Rechnung.</div>`}</div>`;
+ h+=`<div class="card" style="margin-top:10px;padding:4px 0">${docs.map(d=>`<div class="li" data-act="doc" data-id="${d.id}" data-s="${esc([d.title,d.payee,d.note,d.ref,d.raw].join(' ').toLowerCase())}" style="cursor:pointer">${d.hasImg?`<img class="thumb" data-img="${d.id}" alt="">`:`<span class="thumb" style="display:grid;place-items:center;color:var(--muted)">${ICON.doc}</span>`}<div class="grow"><p>${esc(d.title||d.payee||'Dokument')}</p><p class="small muted">${d.kind==='rechnung'?`${eur(d.amount)} · ${d.paid?'bezahlt':'offen'}`:'Dokument'}${d.taxType&&d.taxType!=='none'?` · ${esc(TAXT[d.taxType].split(' (')[0])}`:''}${d.objId&&objById(d.objId)?` · ${esc(objById(d.objId).name)}`:''}</p></div>${d.kind==='rechnung'&&!d.paid?'<span class="chip warn">offen</span>':''}</div>`).join('')||`<div class="empty">Ordner ${y} ist leer. Scanne deine erste Rechnung.</div>`}</div>`;
  return h}
 
 function potNow(){const last=(S.pot.payouts.slice(-1)[0]||{}).d||'';return S.pot.entries.filter(e=>e.d>last).reduce((a,e)=>a+e.eur,0)}
@@ -694,7 +700,7 @@ function exportSheet(){const t=today();const fut=e=>e.repeat&&e.repeat!=='none'|
 const fmtDate=x=>x?`${+x.slice(8)}.${+x.slice(5,7)}.${x.slice(0,4)}`:'';
 
 /* ---------- Steuer-Paket ---------- */
-async function taxPackHTML(y){const T=taxYear(y);const docs=S.docs.filter(d=>+d.year===y&&d.taxType&&d.taxType!=='none').sort((a,b)=>(a.taxType+a.date).localeCompare(b.taxType+b.date));
+async function taxPackHTML(y){const T=taxYear(y);const docs=S.docs.filter(d=>+d.year===y&&d.taxType&&d.taxType!=='none'&&!isRentedDoc(d)).sort((a,b)=>(a.taxType+a.date).localeCompare(b.taxType+b.date));
  const groups=['handwerker','haushalt','werbung','sonstig'];let body='';
  for(const g of groups){const ds=docs.filter(d=>d.taxType===g);if(!ds.length)continue;const sumA=ds.reduce((a,d)=>a+(+d.amount||0),0),sumL=ds.reduce((a,d)=>a+(+d.labor||0),0);
   body+=`<h2>${esc(TAXT[g])}</h2><table><tr><th>Datum</th><th>Empfänger / Titel</th><th>Betrag</th>${g==='handwerker'||g==='haushalt'?'<th>Arbeitskosten</th>':''}<th>Bezahlt</th></tr>`+ds.map((d,i)=>`<tr><td>${fmtDate(d.date)}</td><td>${esc(d.title||d.payee)}${d.ref?`<br><small>${esc(d.ref)}</small>`:''} <small>(Beleg ${g[0].toUpperCase()}${i+1})</small></td><td class="n">${d.amount?eur(d.amount):''}</td>${g==='handwerker'||g==='haushalt'?`<td class="n">${eur(d.labor)}</td>`:''}<td>${d.paid?fmtDate(d.paidDate||''):'offen'}</td></tr>`).join('')+`<tr class="sum"><td></td><td>Summe</td><td class="n">${eur(sumA)}</td>${g==='handwerker'||g==='haushalt'?`<td class="n">${eur(sumL)}</td>`:''}<td></td></tr></table>`}
@@ -702,7 +708,7 @@ async function taxPackHTML(y){const T=taxYear(y);const docs=S.docs.filter(d=>+d.
  return`<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Steuer-Paket ${y}</title><style>body{font-family:system-ui,sans-serif;max-width:800px;margin:24px auto;padding:0 16px;color:#1c2520}h1{margin:0 0 4px}h2{margin-top:28px;font-size:1.1rem}table{width:100%;border-collapse:collapse;font-size:.9rem}th,td{border-bottom:1px solid #d3dbd2;padding:6px 4px;text-align:left;vertical-align:top}.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}.sum td{font-weight:700;border-top:2px solid #1c2520}.box{background:#e3e7fb;border-radius:10px;padding:12px 14px;margin:16px 0}figure{margin:24px 0;page-break-inside:avoid}img{max-width:100%;border:1px solid #d3dbd2}small{color:#5d6a62}</style></head><body>
  <h1>Steuer-Paket ${y}</h1><p>${S.name?esc(S.name)+' · ':''}erstellt am ${fmtDate(today())} mit Kleinkram</p>
  <div class="box"><b>§ 35a EStG, Arbeitskosten</b><br>Handwerkerleistungen: ${eur(T.hw)} → ${T.R.hw.p} % = <b>${eur(T.hwBack)}</b> (max. ${eur(T.R.hw.max)})<br>Haushaltsnahe Dienstleistungen: ${eur(T.hh)} → ${T.R.hh.p} % = <b>${eur(T.hhBack)}</b> (max. ${eur(T.R.hh.max)})<br>${T.wk?`Werbungskosten gesammelt: ${eur(T.wk)}<br>`:''}<small>In ELSTER: Anlage „Haushaltsnahe Aufwendungen“. Nur Arbeits-, Fahrt- und Maschinenkosten, nur unbar bezahlt. Schätzung, keine Steuerberatung.</small></div>
- ${body||'<p>Keine steuerrelevanten Belege in diesem Jahr.</p>'}${imgs?'<h2>Belege</h2>'+imgs:''}</body></html>`}
+ ${body||'<p>Keine steuerrelevanten Belege in diesem Jahr.</p>'}${T.vm.map(x=>`<h2>Vermietung: ${esc(x.o.name)} (Anlage V)</h2><p>Mieteinnahmen laut Kleinkram: <b>${eur(x.rent)}</b>${x.o.miete?` (${Object.keys(x.o.payments||{}).filter(m=>m.startsWith(y+'-')).length} × ${eur(x.o.miete)})`:''}</p><table><tr><th>Datum</th><th>Beleg</th><th>Betrag</th></tr>${x.ds.map(d=>`<tr><td>${fmtDate(d.date)}</td><td>${esc(d.title||d.payee)}${d.ref?`<br><small>${esc(d.ref)}</small>`:''}</td><td class="n">${d.amount?eur(d.amount):''}</td></tr>`).join('')}<tr class="sum"><td></td><td>Werbungskosten gesamt</td><td class="n">${eur(x.sum)}</td></tr></table>`).join('')}${imgs?'<h2>Belege</h2>'+imgs:''}</body></html>`}
 function taxPackCSV(y){const rows=[['Datum','Art','Empfänger/Titel','Betrag','Arbeitskosten','Bezahlt am','Verwendungszweck']];const n=x=>x?String((+x).toFixed(2)).replace('.',','):'';
  S.docs.filter(d=>+d.year===y&&d.taxType&&d.taxType!=='none').forEach(d=>rows.push([fmtDate(d.date),TAXT[d.taxType],d.title||d.payee||'',n(d.amount),n(d.labor),d.paid?fmtDate(d.paidDate||''):'offen',d.ref||'']));
  return '\ufeff'+rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(';')).join('\r\n')}
@@ -727,6 +733,140 @@ function findDeadlines(txt){const out=[];const t=today();
  const seen=new Set();return out.filter(x=>{const k=x.date+x.kind;if(seen.has(k))return false;seen.add(k);return x.date>=addDays(t,-30)}).sort((a,b)=>a.date.localeCompare(b.date))}
 function guessDocTitle(txt){const y=(txt.match(/(?:für|Jahr)\s+(20\d\d)/)||[])[1];if(/einkommensteuer/i.test(txt)&&/bescheid/i.test(txt))return`Einkommensteuerbescheid${y?' '+y:''}`;
  const l=txt.split('\n').map(x=>x.trim()).find(x=>/(bescheid|mahnung|kündigung|bestätigung|vertrag|anhörung|mitteilung|rechnung|abrechnung|antrag|zahlungserinnerung)/i.test(x)&&x.length<70);return l||''}
+
+/* ---------- Haus: Objekte, Miete, Nebenkosten, Zähler ---------- */
+const MK={strom:{n:'Strom',u:'kWh'},gas:{n:'Gas',u:'m³'},wasser:{n:'Wasser',u:'m³'},waerme:{n:'Wärme',u:'kWh'},sonstig:{n:'Zähler',u:''}};
+const MONS=['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+const objs=()=>S.objects||(S.objects=[]);
+const objById=id=>objs().find(x=>x.id===id);
+const isRented=o=>o&&o.type==='vermietet';
+const isRentedDoc=d=>d.objId&&isRented(objById(d.objId));
+const ymOf=d=>d.slice(0,7);
+const rentDue=(o,m)=>`${m}-${pad(Math.min(Math.max(+o.faellig||3,1),28))}`;
+function rentState(o,m){if(o.payments&&o.payments[m])return'paid';if(o.start&&m<ymOf(o.start))return'none';if(o.created&&m<ymOf(o.created))return'old';const due=rentDue(o,m),t=today();if(t<due)return'future';return diff(due,t)>10?'late':'due'}
+function rentOpen(o){const t=today(),out=[];for(let k=2;k>=0;k--){const m=ymOf(addMonths(t.slice(0,8)+'01',-k));const st=rentState(o,m);if(st==='due'||st==='late')out.push({m,st})}return out}
+function nkInfo(o,y){const em=+o.nkEndMonth||12;const end=iso(new Date(y,em,0));return{y,end,deadline:addMonths(end,12)}}
+function nkOpen(o){const t=today(),cy=+t.slice(0,4),done=o.nkDone||[],out=[];const sy=o.start?+o.start.slice(0,4):cy-1;for(let y=Math.max(sy,cy-2);y<=cy;y++){const I=nkInfo(o,y);if(I.end<t&&!done.includes(y))out.push(I)}return out}
+function meterSeries(mt){const r=(mt.readings||[]).slice().sort((a,b)=>a.d.localeCompare(b.d));const s=[];for(let i=1;i<r.length;i++){const days=diff(r[i-1].d,r[i].d);if(days<=0)continue;const use=r[i].v-r[i-1].v;s.push({d:r[i].d,from:r[i-1].d,days,use,perDay:use/days})}return s}
+function meterWarn(mt){const s=meterSeries(mt);if(s.length<2)return null;const last=s[s.length-1];const prev=s.slice(0,-1).map(x=>x.perDay).sort((a,b)=>a-b);const med=prev[Math.floor(prev.length/2)];if(med>0&&last.perDay>med*1.25)return{pct:Math.round((last.perDay/med-1)*100),last,med};return null}
+const nf=v=>Math.abs(v)>=100?Math.round(v).toLocaleString('de-DE'):(+v).toLocaleString('de-DE',{maximumFractionDigits:Math.abs(v)>=10?1:2});
+function meterChart(mt){const s=meterSeries(mt);if(s.length<2)return'<p class="small muted">Ab drei Ablesungen zeigt Kleinkram hier den Verbrauch pro Tag als Kurve.</p>';
+ const W=320,H=150,L=40,Rr=12,T=14,B=24,u=MK[mt.kind]?MK[mt.kind].u:'';const xs=s.map(p=>P(p.d).getTime()),x0=Math.min(...xs),x1=Math.max(...xs);
+ const raw=Math.max(...s.map(p=>p.perDay))||1,mag=Math.pow(10,Math.floor(Math.log10(raw))),ymax=Math.ceil(raw*1.1/mag*2)/2*mag;
+ const X=t=>L+(x1===x0?.5:(t-x0)/(x1-x0))*(W-L-Rr),Y=v=>T+(1-Math.max(0,v)/ymax)*(H-T-B);
+ const pts=s.map((p,i)=>[X(xs[i]),Y(p.perDay)]),line=pts.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ');
+ const warn=meterWarn(mt),lp=pts[pts.length-1],col=warn?'var(--crit)':'var(--stamp)';
+ const grid=[0,.5,1].map(f=>{const v=ymax*f,y=Y(v);return`<line x1="${L}" x2="${W-Rr}" y1="${y}" y2="${y}" stroke="var(--line)" stroke-width="1"/><text x="${L-6}" y="${y+3.5}" text-anchor="end" font-size="10" fill="var(--muted)">${nf(v)}</text>`}).join('');
+ const dl=d=>`${+d.slice(8)}.${+d.slice(5,7)}.${d.slice(2,4)}`;
+ return`<div style="overflow-x:auto"><svg viewBox="0 0 ${W} ${H}" width="100%" style="max-width:100%;display:block;font-family:var(--f-mono)" role="img" aria-label="Verbrauch pro Tag">${grid}
+ <text x="${L}" y="9" font-size="10" fill="var(--muted)">${u?u+' ':''}pro Tag</text>
+ <path d="M${pts[0][0]},${H-B} L${line.replace(/ /g,' L')} L${lp[0]},${H-B} Z" fill="var(--stamp)" opacity=".12"/>
+ <polyline points="${line}" fill="none" stroke="var(--stamp)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+ ${pts.slice(0,-1).map(p=>`<circle cx="${p[0]}" cy="${p[1]}" r="2.5" fill="var(--stamp)"/>`).join('')}
+ <circle cx="${lp[0]}" cy="${lp[1]}" r="4.5" fill="${col}" stroke="var(--paper)" stroke-width="2"/>
+ <text x="${Math.min(lp[0],W-Rr)}" y="${Math.max(lp[1]-9,11)}" text-anchor="end" font-size="11" font-weight="600" fill="${col}">${nf(s[s.length-1].perDay)}</text>
+ <text x="${L}" y="${H-6}" font-size="10" fill="var(--muted)">${dl(s[0].d)}</text><text x="${W-Rr}" y="${H-6}" text-anchor="end" font-size="10" fill="var(--muted)">${dl(s[s.length-1].d)}</text></svg></div>`}
+function syncHaus(){const t=today();let ch=false;const has=f=>S.tasks.some(x=>f(x)&&!x.done&&!x.archived);
+ objs().forEach(o=>{
+  if(isRented(o))nkOpen(o).forEach(I=>{if(diff(I.end,t)>=30&&!has(x=>x.nkObj===o.id&&x.nkYear===I.y)&&!(o.nkGen||[]).includes(I.y)){S.tasks.push({id:uid(),title:`Nebenkostenabrechnung ${I.y}: ${o.name}`,cat:'verwaltung',due:addDays(I.deadline,-30),created:t,postponed:0,started:false,done:null,cost:null,bundle:'',buddy:null,nkObj:o.id,nkYear:I.y,
+   steps:[{t:'Belege des Jahres sammeln (Grundsteuer, Wasser, Müll, Versicherung, Allgemeinstrom)',done:false},{t:'Kosten nach Umlageschlüssel verteilen',done:false},{t:'Vorauszahlungen abziehen',done:false},{t:`Abrechnung nachweisbar an den Mieter schicken (spätestens ${fmtDate(I.deadline)})`,done:false},{t:'Kopie in der Ablage speichern',done:false}]});o.nkGen=(o.nkGen||[]).concat(I.y);ch=true}});
+  (o.meters||[]).forEach(mt=>{if(!mt.remind||mt.remind==='none')return;const m=ymOf(t);const read=(mt.readings||[]).some(r=>ymOf(r.d)===m);let key=null,due=null;
+   if(mt.remind==='monthly'&&!read&&+t.slice(8)>=25){key='m'+m;due=iso(new Date(+m.slice(0,4),+m.slice(5),0))}
+   if(mt.remind==='yearly'){let d=`${t.slice(0,4)}-12-31`;if(diff(t,d)<=10&&!(mt.readings||[]).some(r=>r.d>=addDays(d,-20))){key='y'+d;due=d}}
+   if(key&&mt.lastGen!==key&&!has(x=>x.meterId===mt.id)){S.tasks.push({id:uid(),title:`Zähler ablesen: ${MK[mt.kind].n}${mt.name?' '+mt.name:''} (${o.name})`,cat:'verwaltung',due,created:t,postponed:0,started:false,done:null,cost:null,bundle:'',buddy:null,meterId:mt.id,objId:o.id,steps:suggestSteps('zähler ablesen')});mt.lastGen=key;ch=true}})});
+ if(ch)save()}
+function objSheet(id){const isNew=!id;const o=objById(id)||{id:uid(),name:'',type:'vermietet',address:'',mieter:'',miete:'',faellig:3,start:'',nkEndMonth:12,payments:{},meters:[],nkDone:[]};
+ sheet(`<h2>${isNew?'Neues Objekt':esc(o.name)}</h2>
+ <div class="seg">${[['vermietet','Vermietet'],['eigen','Selbst bewohnt']].map(([k,l])=>`<button class="${o.type===k?'on':''}" data-ot="${k}">${l}</button>`).join('')}</div>
+ <label class="f">Name<input class="inp" id="oN" value="${esc(o.name)}" placeholder="z. B. Wohnung 2. OG" ${isNew?'autofocus':''}></label>
+ <label class="f">Adresse (optional)<input class="inp" id="oA" value="${esc(o.address)}"></label>
+ <div id="oRent" class="stack">
+ <div class="grid2"><label class="f">Mieter<input class="inp" id="oM" value="${esc(o.mieter)}"></label><label class="f">Miete gesamt (€)<input class="inp mono" type="number" step="0.01" inputmode="decimal" id="oR" value="${o.miete}"></label></div>
+ <div class="grid2"><label class="f">Fällig am (Tag)<input class="inp mono" type="number" inputmode="numeric" id="oF" value="${o.faellig}"></label><label class="f">Mietbeginn<input class="inp" type="date" id="oS" value="${o.start||''}"></label></div>
+ <label class="f">Nebenkosten-Zeitraum endet im<select class="inp" id="oE">${MON.map((m,i)=>`<option value="${i+1}" ${(+o.nkEndMonth||12)===i+1?'selected':''}>${m}</option>`).join('')}</select></label>
+ <p class="small muted">Die Abrechnung muss dem Mieter spätestens 12 Monate nach Ende des Zeitraums zugehen (§ 556 BGB). Kleinkram legt die Aufgabe rechtzeitig an.</p></div>
+ <div class="row"><button class="btn pri grow" id="oSave">Speichern</button>${isNew?'':'<button class="btn danger" id="oX">Löschen</button>'}</div>`,s=>{
+ let type=o.type;const vis=()=>{s.querySelector('#oRent').hidden=type!=='vermietet';s.querySelectorAll('[data-ot]').forEach(b=>b.classList.toggle('on',b.dataset.ot===type))};vis();
+ s.querySelectorAll('[data-ot]').forEach(b=>b.onclick=()=>{type=b.dataset.ot;vis()});
+ s.querySelector('#oSave').onclick=()=>{const n=val('oN');if(!n){toast('Gib dem Objekt einen Namen.');return}Object.assign(o,{name:n,type,address:val('oA'),mieter:val('oM'),miete:+val('oR')||0,faellig:Math.min(Math.max(+val('oF')||3,1),28),start:val('oS'),nkEndMonth:+val('oE')||12});
+  if(isNew){o.created=today();objs().push(o);pts(5,'Objekt angelegt')}UI.obj=o.id;save();closeSheet();render()};
+ const x=s.querySelector('#oX');x&&(x.onclick=()=>confirmSheet('Objekt löschen?','Mietzahlungen und Zähler dieses Objekts verschwinden. Belege bleiben in der Ablage.','Löschen',()=>{S.objects=objs().filter(z=>z.id!==o.id);UI.obj=null;save();render()},true))})}
+function meterSheet(oid,mid){const o=objById(oid);if(!o)return;o.meters=o.meters||[];const isNew=!mid;const mt=o.meters.find(m=>m.id===mid)||{id:uid(),kind:'strom',name:'',nr:'',remind:'monthly',readings:[]};
+ sheet(`<h2>${isNew?'Neuer Zähler':'Zähler'}</h2><div class="grid2"><label class="f">Art<select class="inp" id="mK">${Object.entries(MK).map(([k,v])=>`<option value="${k}" ${mt.kind===k?'selected':''}>${v.n}</option>`).join('')}</select></label><label class="f">Bezeichnung (optional)<input class="inp" id="mN" value="${esc(mt.name)}" placeholder="z. B. Warmwasser"></label></div>
+ <div class="grid2"><label class="f">Zählernummer<input class="inp mono" id="mR" value="${esc(mt.nr)}"></label><label class="f">Ans Ablesen erinnern<select class="inp" id="mE">${[['monthly','monatlich'],['yearly','jährlich (Dez.)'],['none','nie']].map(([k,l])=>`<option value="${k}" ${mt.remind===k?'selected':''}>${l}</option>`).join('')}</select></label></div>
+ <div class="row"><button class="btn pri grow" id="mS">Speichern</button>${isNew?'':'<button class="btn danger" id="mX">Löschen</button>'}</div>`,s=>{
+ s.querySelector('#mS').onclick=()=>{Object.assign(mt,{kind:val('mK'),name:val('mN'),nr:val('mR'),remind:val('mE')});if(isNew)o.meters.push(mt);save();closeSheet();render()};
+ const x=s.querySelector('#mX');x&&(x.onclick=()=>confirmSheet('Zähler löschen?','Alle Ablesungen gehen verloren.','Löschen',()=>{o.meters=o.meters.filter(z=>z.id!==mt.id);save();render()},true))})}
+function readingSheet(oid,mid){const o=objById(oid),mt=o&&(o.meters||[]).find(m=>m.id===mid);if(!mt)return;const r=(mt.readings||[]).slice().sort((a,b)=>a.d.localeCompare(b.d));const last=r[r.length-1];const u=MK[mt.kind].u;
+ sheet(`<h2>Ablesung: ${esc(MK[mt.kind].n)}${mt.name?' '+esc(mt.name):''}</h2>${last?`<p class="small muted">Letzter Stand: <b class="mono">${nf(last.v)} ${u}</b> am ${fmtDate(last.d)}</p>`:''}
+ <div class="grid2"><label class="f">Stand${u?' ('+u+')':''}<input class="inp mono" type="number" step="0.001" inputmode="decimal" id="rV" autofocus></label><label class="f">Datum<input class="inp" type="date" id="rD" value="${today()}"></label></div>
+ <button class="btn pri block" id="rS">Speichern</button>
+ ${r.length?`<details><summary>Alle Ablesungen (${r.length})</summary>${r.slice().reverse().map(x=>`<div class="li"><span class="mono small">${fmtDate(x.d)}</span><div class="grow"><p class="mono">${nf(x.v)} ${u}</p></div><button class="btn sm ghost danger" data-rdel="${x.d}|${x.v}">Löschen</button></div>`).join('')}</details>`:''}`,s=>{
+ s.querySelector('#rS').onclick=()=>{const v=+String(val('rV')).replace(',','.'),d=val('rD');if(!(v>=0)||val('rV')===''){toast('Trag den Zählerstand ein.');return}
+  const before=r.filter(x=>x.d<=d).pop();if(before&&v<before.v){toast(`Kleiner als am ${fmtDate(before.d)} (${nf(before.v)}). Neuer Zähler? Dann lege ihn neu an.`);return}
+  mt.readings=(mt.readings||[]).filter(x=>x.d!==d).concat({d,v});S.tasks.filter(x=>x.meterId===mt.id&&!x.done).forEach(x=>x.done=today());save();closeSheet();pts(3,'Zähler abgelesen');
+  const w=meterWarn(mt);if(w)setTimeout(()=>toast(`Achtung: ${w.pct} % mehr Verbrauch pro Tag als sonst`),1200);render()};
+ s.querySelectorAll('[data-rdel]').forEach(b=>b.onclick=()=>{const[d,v]=b.dataset.rdel.split('|');mt.readings=mt.readings.filter(x=>!(x.d===d&&String(x.v)===v));save();closeSheet();render()})})}
+function vHaus(){const os=objs();if(!os.length)return`<div class="card stack"><h3>Wohnungen und Häuser</h3><p class="small muted">Lege hier deine vermieteten Wohnungen oder dein eigenes Zuhause an. Kleinkram hakt dann monatlich die Mieteingänge ab, sammelt Handwerker-Belege pro Objekt, erinnert an die Nebenkostenabrechnung und zeigt den Verbrauch deiner Zähler als Kurve.</p><button class="btn pri" data-act="obj">Objekt anlegen</button></div>`;
+ if(!UI.obj||!objById(UI.obj))UI.obj=os[0].id;const o=objById(UI.obj),y=new Date().getFullYear();
+ let h=`<div class="folders" role="tablist" aria-label="Objekte">${os.map(x=>`<button class="folder${x.id===o.id?' on':''}" data-act="objsel" data-id="${x.id}" style="font-family:var(--f-body)">${esc(x.name)}</button>`).join('')}<button class="folder" data-act="obj" style="font-family:var(--f-body)">+ Neu</button></div>`;
+ h+=`<div class="card row" style="margin-top:12px;gap:12px"><div class="grow"><h2>${esc(o.name)}</h2><p class="small muted">${isRented(o)?`Vermietet${o.mieter?' an '+esc(o.mieter):''}${o.miete?` · ${eur(o.miete)} / Monat`:''}`:'Selbst bewohnt'}${o.address?' · '+esc(o.address):''}</p></div><button class="btn sm" data-act="obj" data-id="${o.id}">Bearbeiten</button></div>`;
+ if(isRented(o)){const ms=[...Array(12)].map((_,i)=>`${y}-${pad(i+1)}`);const paid=ms.filter(m=>rentState(o,m)==='paid').length,exp=ms.filter(m=>!['none','future','old'].includes(rentState(o,m))||rentState(o,m)==='paid').length;
+  h+=reg(`Mieteingänge ${y}`,`${paid}/${exp}`,`<div style="display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px">${ms.map((m,i)=>{const st=rentState(o,m);const C={paid:['var(--ok)','✓'],late:['var(--crit)','!'],due:['var(--warn)','·'],future:['var(--line)',''],none:['var(--line)','–'],old:['var(--line)','?']}[st];
+   return`<button data-act="rentT" data-id="${o.id}" data-m="${m}" ${st==='none'?'disabled':''} style="border:1.5px solid ${C[0]};background:${st==='paid'?'color-mix(in srgb,var(--ok) 14%,var(--paper))':'var(--paper)'};border-radius:10px;padding:8px 0;font-weight:700;font-size:.8rem;color:var(--ink);min-height:48px" aria-label="${MON[i]}: ${st==='paid'?'eingegangen':'offen'}">${MONS[i]}<br><span style="color:${C[0]}">${C[1]}</span></button>`}).join('')}</div>
+  <p class="small muted">Tippen = Miete eingegangen. Grün: da, gelb: fällig, rot: über 10 Tage überfällig, „?“: vor Kleinkram, bei Bedarf nachtragen.${o.miete?` Eingegangen: ${eur(paid*o.miete)} von ${eur(exp*o.miete)}.`:''}</p>`);
+  const nk=nkOpen(o),lastY=new Date().getFullYear()-1,nkL=nkInfo(o,y);
+  h+=reg('Nebenkostenabrechnung',null,(nk.length?nk.map(I=>{const k=diff(today(),I.deadline);return`<div class="row between"><span>Abrechnung ${I.y}</span><span class="chip ${k<0?'crit':k<=60?'warn':''}">${k<0?'Frist abgelaufen':`bis ${fmtDate(I.deadline)}`}</span></div><div class="row"><button class="btn sm" data-act="nkDone" data-id="${o.id}" data-y="${I.y}">Verschickt</button></div>`}).join(''):`<p class="small muted">Alles verschickt. Nächster Zeitraum endet am ${fmtDate(nkL.end)}, Abrechnung dann bis ${fmtDate(nkL.deadline)}.</p>`)+((o.nkDone||[]).length?`<p class="small muted">Erledigt: ${o.nkDone.slice().sort().join(', ')}</p>`:''));}
+ const ds=S.docs.filter(d=>d.objId===o.id&&+d.year===y);const sum=ds.reduce((a,d)=>a+(+d.amount||0),0);
+ h+=reg(`Belege ${y}`,ds.length,(ds.length?ds.slice(0,5).map(d=>`<div class="row between" data-act="doc" data-id="${d.id}" style="cursor:pointer"><span class="small">${esc(d.title||d.payee)}</span><span class="mono small">${d.amount?eur(d.amount):''}</span></div>`).join('')+`<div class="row between"><b>Summe</b><b class="mono">${eur(sum)}</b></div>`:'<p class="small muted">Noch keine Belege zugeordnet. Beim Scannen einer Rechnung unter „Gehört zu“ dieses Objekt wählen.</p>')+(isRented(o)?'<p class="small muted">Bei vermieteten Objekten zählen Handwerkerkosten als Werbungskosten (Anlage V), nicht als § 35a.</p>':''));
+ (o.meters||[]).forEach(mt=>{const s=meterSeries(mt),w=meterWarn(mt),u=MK[mt.kind].u,r=(mt.readings||[]).slice().sort((a,b)=>a.d.localeCompare(b.d)),last=r[r.length-1],lp=s[s.length-1];
+  h+=reg(`${MK[mt.kind].n}${mt.name?' · '+esc(mt.name):''}`,null,`<div class="row between"><div><p class="mono"><b>${last?nf(last.v)+' '+u:'–'}</b></p><p class="small muted">${last?'abgelesen '+fmtD(last.d):'noch keine Ablesung'}${mt.nr?' · Nr. '+esc(mt.nr):''}</p></div>${lp?`<div style="text-align:right"><p class="mono"><b>${nf(lp.perDay)} ${u}</b></p><p class="small muted">pro Tag</p></div>`:''}</div>
+  ${w?`<div class="banner" style="background:color-mix(in srgb,var(--crit) 10%,var(--paper));border-color:color-mix(in srgb,var(--crit) 35%,var(--line))"><div class="grow small"><b>${w.pct} % mehr Verbrauch</b> pro Tag als üblich (${nf(w.last.perDay)} statt ${nf(w.med)} ${u}).${mt.kind==='gas'||mt.kind==='waerme'?' Im Winter ist mehr normal.':' Gerät defekt oder Leck? Kurz prüfen lohnt sich.'}</div></div>`:''}
+  ${meterChart(mt)}<div class="row"><button class="btn sm pri" data-act="reading" data-id="${o.id}" data-m="${mt.id}">Ablesung eintragen</button><button class="btn sm ghost" data-act="meter" data-id="${o.id}" data-m="${mt.id}">Einstellungen</button></div>`)});
+ h+=`<button class="btn block" data-act="meter" data-id="${o.id}" style="margin-top:14px">Zähler hinzufügen</button>`;
+ return h}
+
+/* ---------- Garantie-Wächter ---------- */
+const wEnd=w=>addDays(addMonths(w.buy,+w.months||24),-1);
+function syncWarranties(){const t=today();let ch=false;(S.warranties||[]).forEach(w=>{if(!w.buy)return;const end=wEnd(w),k=diff(t,end);
+ if(k>=0&&k<=30&&w.lastGen!==end&&!S.tasks.some(x=>x.wid===w.id&&!x.done&&!x.archived)){S.tasks.push({id:uid(),title:`Noch ${k} Tage Garantie: ${w.name}`,cat:'privat',due:end,created:t,postponed:0,started:false,done:null,cost:null,bundle:'',buddy:null,wid:w.id,
+  steps:[{t:'Funktioniert noch alles? Einmal durchprobieren',done:false},{t:'Kratzer, Geräusche, Macken notieren',done:false},{t:'Bei Mangel: Kaufbeleg in Kleinkram öffnen und Händler/Hersteller kontaktieren',done:false}]});w.lastGen=end;ch=true}});if(ch)save()}
+function warrantySheet(id){const isNew=!id;S.warranties=S.warranties||[];const w=S.warranties.find(x=>x.id===id)||{id:uid(),name:'',buy:today(),months:24,shop:'',price:'',sn:'',note:'',hasImg:false};let img=null;
+ sheet(`<h2>${isNew?'Garantie erfassen':esc(w.name)}</h2>
+ <label class="btn block" for="wF">${ICON.cam} Kaufbeleg fotografieren</label><input type="file" id="wF" accept="image/*" capture="environment" hidden><img class="preview-img" id="wI" ${w.hasImg?'':'hidden'} alt="Kaufbeleg">
+ <label class="f">Was?<input class="inp" id="wN" value="${esc(w.name)}" placeholder="z. B. Waschmaschine" ${isNew?'autofocus':''}></label>
+ <div class="grid2"><label class="f">Gekauft am<input class="inp" type="date" id="wB" value="${w.buy}"></label><label class="f">Garantie<select class="inp" id="wM">${[[6,'6 Monate'],[12,'1 Jahr'],[24,'2 Jahre'],[36,'3 Jahre'],[60,'5 Jahre'],[120,'10 Jahre']].map(([k,l])=>`<option value="${k}" ${+w.months===k?'selected':''}>${l}</option>`).join('')}</select></label></div>
+ <div class="grid2"><label class="f">Händler<input class="inp" id="wS" value="${esc(w.shop)}"></label><label class="f">Preis (€)<input class="inp mono" type="number" step="0.01" inputmode="decimal" id="wP" value="${w.price}"></label></div>
+ <label class="f">Seriennummer (optional)<input class="inp mono" id="wR" value="${esc(w.sn)}"></label><label class="f">Notiz<input class="inp" id="wO" value="${esc(w.note)}" placeholder="z. B. Herstellergarantie, Registrierung nötig"></label>
+ <p class="small muted">Gesetzliche Gewährleistung beim Händler: 2 Jahre. Herstellergarantien können länger sein. 30 Tage vor Ablauf erinnert Kleinkram dich.</p>
+ <div class="row"><button class="btn pri grow" id="wSave">Speichern</button>${isNew?'':'<button class="btn danger" id="wX">Löschen</button>'}</div>`,s=>{
+ if(w.hasImg)IDB.get('w-'+w.id).then(src=>{if(src)s.querySelector('#wI').src=src});
+ s.querySelector('#wF').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const im=await loadImg(f);img=canvasOf(im,1400).toDataURL('image/jpeg',.72);const p=s.querySelector('#wI');p.src=img;p.hidden=false}catch(er){toast('Bild ließ sich nicht öffnen.')}};
+ s.querySelector('#wSave').onclick=async()=>{const n=val('wN'),b=val('wB');if(!n||!b){toast('Name und Kaufdatum, bitte.');return}const old=wEnd(w);Object.assign(w,{name:n,buy:b,months:+val('wM'),shop:val('wS'),price:+val('wP')||'',sn:val('wR'),note:val('wO')});if(wEnd(w)!==old)w.lastGen=null;
+  if(img){w.hasImg=true;await IDB.put('w-'+w.id,img)}if(isNew){S.warranties.push(w);pts(5,'Garantie erfasst')}save();closeSheet();render();const k=diff(today(),wEnd(w));toast(k<0?'Garantie ist schon abgelaufen':`Garantie bis ${fmtDate(wEnd(w))}`)};
+ const x=s.querySelector('#wX');x&&(x.onclick=()=>confirmSheet('Garantie löschen?','Eintrag und Foto verschwinden.','Löschen',()=>{S.warranties=S.warranties.filter(z=>z.id!==w.id);IDB.del('w-'+w.id);save();render()},true))})}
+function vGarantie(){const ws=(S.warranties||[]).slice().sort((a,b)=>wEnd(a).localeCompare(wEnd(b)));const t=today();const act=ws.filter(w=>wEnd(w)>=t),old=ws.filter(w=>wEnd(w)<t);
+ const row=w=>{const k=diff(t,wEnd(w));return`<div class="li" data-act="warranty" data-id="${w.id}" style="cursor:pointer"><span class="dot" style="${cv('privat')}"></span><div class="grow"><p>${esc(w.name)}</p><p class="small muted">${w.shop?esc(w.shop)+' · ':''}gekauft ${fmtDate(w.buy)}${w.price?' · '+eur(w.price):''}</p></div><span class="chip ${k<0?'':k<=30?'crit':k<=90?'warn':'ok'}">${k<0?'abgelaufen':k<=90?`noch ${k} Tage`:`bis ${fmtDate(wEnd(w))}`}</span></div>`};
+ return reg('Garantien',act.length,(act.map(row).join('')||'<div class="empty">Noch nichts erfasst. Fotografier den Kaufbeleg von Waschmaschine, Handy oder Werkzeug. Kleinkram erinnert dich 30 Tage, bevor die Garantie endet.</div>')+`<div class="li"><button class="btn sm" data-act="warranty">Garantie erfassen</button></div>`,true)+(old.length?`<div class="card" style="margin-top:14px"><details><summary>Abgelaufen (${old.length})</summary>${old.map(row).join('')}</details></div>`:'')}
+
+/* ---------- Wochen-Rückblick ---------- */
+function weekKey(d){const x=P(d);const wd=(x.getDay()+6)%7;x.setDate(x.getDate()-wd+3);const y=x.getFullYear();const j4=new Date(y,0,4);const wk=1+Math.round(((x-j4)/864e5-3+((j4.getDay()+6)%7))/7);return`${y}-W${pad(wk)}`}
+const weekMon=d=>addDays(d,-((P(d).getDay()+6)%7));
+function reviewTarget(){const t=today(),wd=P(t).getDay();const tg=wd===0?t:wd===1?addDays(t,-1):null;if(!tg)return null;S.weeks=S.weeks||{};return S.weeks[weekKey(tg)]&&S.weeks[weekKey(tg)].done?null:tg}
+function weekStats(sun){const mon=weekMon(sun),inW=d=>d&&d>=mon&&d<=sun;const done=S.tasks.filter(x=>inW(x.done));let due=0,ok=0;for(let d=mon;d<=sun&&d<=today();d=addDays(d,1))S.routines.forEach(r=>{if(rDue(r,d)||r.days.includes(d)){due++;if(r.days.includes(d))ok++}});
+ const pts_=S.log.filter(l=>inW(l.d)).reduce((a,l)=>a+l.n,0),pot=S.pot.entries.filter(e=>inW(e.d)).reduce((a,e)=>a+e.eur,0);return{mon,sun,done,rPct:due?Math.round(ok/due*100):0,pts:pts_,pot}}
+function reviewSheet(){const sun=reviewTarget()||(P(today()).getDay()===0?today():addDays(weekMon(today()),-1));const W=weekStats(sun),key=weekKey(sun),next=weekKey(addDays(sun,1));const cand=ranked().slice(0,8);const chosen=new Set(S.tasks.filter(x=>x.weekGoal===next&&!x.done).map(x=>x.id));
+ sheet(`<h2>Wochen-Rückblick</h2><p class="small muted">${fmtDate(W.mon)} bis ${fmtDate(W.sun)} · 5 Minuten, dann bist du durch.</p>
+ <div class="grid2"><div class="card" style="padding:12px"><p class="small muted">Erledigt</p><p class="amount" style="font-size:1.6rem">${W.done.length}</p></div><div class="card" style="padding:12px"><p class="small muted">Routinen geschafft</p><p class="amount" style="font-size:1.6rem">${W.rPct} %</p></div><div class="card" style="padding:12px"><p class="small muted">Punkte</p><p class="amount" style="font-size:1.6rem">+${W.pts}</p></div><div class="card" style="padding:12px"><p class="small muted">Gespart</p><p class="amount" style="font-size:1.6rem">${eur(W.pot)}</p></div></div>
+ ${W.done.length?`<details><summary>Das hast du geschafft</summary>${W.done.slice(0,12).map(x=>`<div class="li"><span class="chip stamp">✓</span><div class="grow"><p class="small">${esc(x.title)}</p></div></div>`).join('')}</details>`:'<p class="small muted">Diese Woche nichts abgehakt. Passiert. Die nächste wird besser.</p>'}
+ <h3>Nächste Woche: deine 3 Ziele</h3><p class="small muted">Wähle höchstens drei. Sie stehen dann oben auf „Heute“.</p>
+ <div class="stack" style="gap:6px">${cand.map(x=>`<label class="li" style="cursor:pointer;border:1px solid var(--line);border-radius:12px"><input type="checkbox" data-goal="${x.id}" ${chosen.has(x.id)?'checked':''} style="width:22px;height:22px;accent-color:var(--stamp)"><div class="grow"><p class="small">${esc(x.title)}</p>${x.due?`<p class="small muted">fällig ${fmtD(x.due)}</p>`:''}</div></label>`).join('')||'<p class="small muted">Keine offenen Aufgaben.</p>'}</div>
+ <label class="f">Oder ein neues Ziel<input class="inp" id="gNew" placeholder="z. B. Keller ausmisten"></label>
+ <button class="btn pri block" id="rvDone">Woche abschließen (+20 Punkte)</button>`,s=>{
+ const box=s.querySelectorAll('[data-goal]');box.forEach(c=>c.onchange=()=>{const n=[...box].filter(x=>x.checked).length+(val('gNew')?1:0);if(n>3){c.checked=false;toast('Höchstens drei Ziele.')}});
+ s.querySelector('#rvDone').onclick=()=>{const ids=[...box].filter(x=>x.checked).map(x=>x.dataset.goal);S.tasks.forEach(x=>{if(x.weekGoal===next&&!ids.includes(x.id))delete x.weekGoal});ids.forEach(id=>{const x=S.tasks.find(z=>z.id===id);if(x)x.weekGoal=next});
+  const nw=val('gNew');if(nw&&ids.length<3)S.tasks.push({id:uid(),title:nw,cat:guessCat(nw),due:addDays(sun,5),created:today(),postponed:0,started:false,done:null,steps:[],cost:null,bundle:'',buddy:null,weekGoal:next});
+  S.weeks=S.weeks||{};const first=!S.weeks[key]||!S.weeks[key].done;S.weeks[key]={done:today(),goals:ids};save();closeSheet();if(first){stamp('Woche geplant');pts(20,'Wochen-Rückblick')}render()}})}
 
 /* ---------- Verträge ---------- */
 const CT={strom:['Strom',12,'monatlich',0,1,'m'],gas:['Gas',12,'monatlich',0,1,'m'],internet:['Internet / Festnetz',24,'monatlich',0,1,'m'],handy:['Handy',24,'monatlich',0,1,'m'],
@@ -795,6 +935,8 @@ function reminderList(){const now=Date.now();const L=[];const add=(id,title,body
  if(S.set.brief){const[h,m]=(S.set.briefTime||'07:00').split(':').map(Number);for(let k=0;k<2;k++){const d=new Date();d.setDate(d.getDate()+k);d.setHours(h,m,0,0);const day=iso(d);const B=briefShort(day);add('kk-brief-'+day,B.title,B.body,d.getTime())}}
  if(S.set.remind){const lead=(+S.set.remindMin||30)*60000;for(let k=0;k<7;k++){const day=addDays(today(),k);eventsOn(day).forEach(e=>{if(!e.time)return;const[h,m]=e.time.split(':').map(Number);const d=P(day);d.setHours(h,m,0,0);add(`kk-ev-${e.id}-${day}`,cut(`${e.time} ${evLabel(e,day)}`,40),lead>=86400000?`morgen · ${CATS[e.cat]}`:`in ${lead>=3600000?lead/3600000+' Std':lead/60000+' Min'} · ${CATS[e.cat]}`,d.getTime()-lead)});
   S.tasks.filter(t=>!t.done&&!t.archived&&t.due===day).forEach(t=>{const d=P(day);d.setHours(9,0,0,0);add(`kk-tk-${t.id}-${day}`,cut('Fällig: '+t.title,40),t.cost&&+t.cost.eur?`Sonst ${eur(t.cost.eur)} · 5 Min reichen`:'5 Min anfangen reicht',d.getTime())})}
+  {const t0=today(),wd=P(t0).getDay();const sun=addDays(t0,(7-wd)%7);const d=P(sun);d.setHours(18,0,0,0);if(!(S.weeks&&S.weeks[weekKey(sun)]&&S.weeks[weekKey(sun)].done))add('kk-week-'+weekKey(sun),'Wochen-Rückblick','5 Min · 3 Ziele · +20 Punkte',d.getTime())}
+  objs().filter(isRented).forEach(o=>{for(let k=0;k<2;k++){const m=ymOf(addMonths(today().slice(0,8)+'01',k));if(rentState(o,m)==='paid')continue;const d=P(addDays(rentDue(o,m),2));d.setHours(9,0,0,0);add(`kk-rent-${o.id}-${m}`,cut('Miete prüfen: '+o.name,40),`${MON[+m.slice(5)-1]}${o.miete?' · '+eur(o.miete):''}`,d.getTime())}});
   S.routines.filter(r=>r.time).forEach(r=>{const day=rDue(r)&&!r.days.includes(today())?today():rNext(r);const[h,m]=r.time.split(':').map(Number);const d=P(day);d.setHours(h,m,0,0);add(`kk-rt-${r.id}-${day}`,cut(r.title,40),`Routine · ${rLabel(r)}`,d.getTime())})}
  return L}
 const SOUNDS={standard:{n:'Kurz (Handy-Ton)'},gong:{n:'Gong · 4 s',f:'kk_gong.wav'},glocke:{n:'Glocke · 5 s',f:'kk_glocke.wav'},wecker:{n:'Wecker · 9 s',f:'kk_wecker.wav'}};
@@ -819,7 +961,7 @@ async function notifStatus(){const box=document.getElementById('notifState');if(
 function fmtNext(ns){const t=ns.map(n=>new Date(n.schedule&&n.schedule.at||n.extra&&n.extra.at||0)).filter(d=>+d>0).sort((a,b)=>a-b)[0];if(!t)return'';return `${fmtD(iso(t))} ${pad(t.getHours())}:${pad(t.getMinutes())}`}
 
 /* ---------- Rendern ---------- */
-function render(){S.contracts=S.contracts||[];syncRecurring();syncContracts();const v=$('#view');
+function render(){S.contracts=S.contracts||[];syncRecurring();syncContracts();syncHaus();syncWarranties();const v=$('#view');
  v.innerHTML=({heute:vHeute,kalender:vKalender,aufgaben:vAufgaben,ablage:vAblage,ich:vIch}[UI.tab]||vHeute)();
  $('#nav').innerHTML=NAV.map(([k,l,p])=>`<button class="${UI.tab===k?'on':''}" data-act="go" data-to="${k}" aria-current="${UI.tab===k?'page':'false'}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${p}</svg>${l}</button>`).join('');
  v.querySelectorAll('img[data-img]').forEach(im=>IDB.get(im.dataset.img).then(src=>{if(src)im.src=src}));
@@ -1016,13 +1158,14 @@ function invoiceSheet(d,img,how,existing,why){const doc=existing||{};const v=(k,
  <div class="grid2"><label class="f">Zahlen bis<input class="inp" type="date" id="iD" value="${v('due',addDays(today(),14))}"></label><label class="f">Mahngebühr, falls zu spät (€)<input class="inp" type="number" inputmode="decimal" id="iF" value="${v('fee',5)}"></label></div>
  <label class="f">Steuer<select class="inp" id="iX">${Object.entries(TAXT).map(([k,l])=>`<option value="${k}" ${(d.taxType??doc.taxType??'none')===k?'selected':''}>${l}</option>`).join('')}</select></label>
  <div class="grid2"><label class="f">Davon Arbeitskosten (€)<input class="inp mono" type="number" step="0.01" inputmode="decimal" id="iL" value="${v('labor')}" placeholder="Lohn + Fahrt"></label><label class="f">Jahresordner<input class="inp mono" type="number" id="iY" value="${v('year',y)}"></label></div>
+ ${objs().length?`<label class="f">Gehört zu<select class="inp" id="iO"><option value="">–</option>${objs().map(o=>`<option value="${o.id}" ${(d.objId??doc.objId)===o.id?'selected':''}>${esc(o.name)}${isRented(o)?' (vermietet)':''}</option>`).join('')}</select></label>`:''}
  <label class="switch"><span>Schon bezahlt</span><input type="checkbox" id="iPaid" ${(d.paid??doc.paid)?'checked':''}></label>
  <div class="row"><button class="btn grow" id="iQR">GiroCode zeigen</button><button class="btn pri grow" id="iS">${existing?'Speichern':'Ablegen'}</button></div>
  ${existing?`<button class="btn ghost danger" id="iDel">Löschen</button>`:''}
  ${d.raw?`<details><summary>Erkannter Text</summary><textarea class="inp mono" id="iRaw" readonly style="min-height:160px;font-size:.75rem">${esc(d.raw)}</textarea><button class="btn sm" id="iRawC">Text kopieren</button></details>`:''}
  <p class="small muted">Kleinkram überweist nie selbst. Du prüfst und schickst in deiner Banking-App ab.</p>`,s=>{const rc=s.querySelector('#iRawC');rc&&(rc.onclick=()=>copy(d.raw,s.querySelector('#iRaw')));
  const ib=s.querySelector('#iI'),ok=s.querySelector('#iOk');const chk=()=>{const x=ib.value.replace(/\s/g,'');ok.innerHTML=!x?'':ibanOK(x)?'<span class="chip ok">gültig</span>':'<span class="chip crit">Prüfziffer passt nicht</span>'};ib.oninput=chk;chk();
- const form=()=>({payee:val('iP'),iban:val('iI').replace(/\s/g,'').toUpperCase(),bic:val('iB').toUpperCase(),amount:+val('iA')||0,ref:val('iR'),due:val('iD'),fee:+val('iF')||0,taxType:val('iX'),labor:+val('iL')||0,year:+val('iY')||y,paid:s.querySelector('#iPaid').checked});
+ const form=()=>({payee:val('iP'),iban:val('iI').replace(/\s/g,'').toUpperCase(),bic:val('iB').toUpperCase(),amount:+val('iA')||0,ref:val('iR'),due:val('iD'),fee:+val('iF')||0,taxType:val('iX'),labor:+val('iL')||0,year:+val('iY')||y,paid:s.querySelector('#iPaid').checked,objId:val('iO')||null});
  s.querySelector('#iQR').onclick=()=>{const f=form();if(!ibanOK(f.iban)){toast('Erst eine gültige IBAN eintragen.');return}giroSheet(f,()=>invoiceSheet(Object.assign({},d,f),img,how,existing))};
  s.querySelector('#iS').onclick=async()=>{const f=form();if(!f.payee&&!f.amount){toast('Mindestens Empfänger oder Betrag, bitte.');return}
   const isNew=!existing;const o=existing?S.docs.find(x=>x.id===existing.id):{id:uid(),kind:'rechnung',date:today()};
@@ -1110,6 +1253,14 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-act]');if
  case'taxpack':taxPackSheet(+el.dataset.y);break;
  case'abl':UI.abl=el.dataset.k;render();break;
  case'contract':contractSheet(id);break;
+ case'obj':objSheet(id);break;
+ case'objsel':UI.obj=id;render();break;
+ case'rentT':{const o=objById(id),m=el.dataset.m;if(!o)break;o.payments=o.payments||{};if(o.payments[m]){delete o.payments[m];save();render();toast(`${MON[+m.slice(5)-1]}: wieder offen`)}else{o.payments[m]=today();save();sound('tick');haptic(12);pts(3,'Mieteingang geprüft');render()}break}
+ case'nkDone':{const o=objById(id),y=+el.dataset.y;if(o){o.nkDone=o.nkDone||[];if(!o.nkDone.includes(y))o.nkDone.push(y);S.tasks.filter(x=>x.nkObj===o.id&&x.nkYear===y&&!x.done).forEach(x=>x.done=today());save();stamp('Verschickt');pts(15,'Nebenkostenabrechnung');render()}break}
+ case'meter':meterSheet(id,el.dataset.m);break;
+ case'reading':readingSheet(id,el.dataset.m);break;
+ case'warranty':warrantySheet(id);break;
+ case'review':reviewSheet();break;
  case'notifPerm':if(CAP){toast('Frage Erlaubnis an …');CapP('LocalNotifications').requestPermissions().then(r=>{toast(r.display==='granted'?'Benachrichtigungen erlaubt':'Nicht erlaubt. In den Handy-Einstellungen änderbar.');scheduleAll();setTimeout(notifStatus,800)}).catch(e=>toast('Fehler: '+(e&&e.message||e)));break}if(nat('requestNotificationPermission','kk-perm')===undefined)toast('Geht nur in der App.');break;
  case'alarmPerm':nat('openExactAlarmSettings');break;
  case'sndPreview':previewSound();break;
