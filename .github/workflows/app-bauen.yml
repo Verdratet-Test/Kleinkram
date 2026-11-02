@@ -1,3 +1,5 @@
+name: App bauen
+
 on:
   push:
     branches: [main]
@@ -35,6 +37,7 @@ jobs:
           mkdir -p www/lib
           cp node_modules/jsqr/dist/jsQR.js www/lib/jsQR.js
           cp node_modules/qrcode-generator/qrcode.js www/lib/qrcode.js
+          cp node_modules/@capacitor/core/dist/capacitor.js www/lib/capacitor.js
 
       - name: Android-Projekt erzeugen
         run: |
