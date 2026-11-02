@@ -195,7 +195,12 @@ p{margin:0}
 /* Sheet */
 .sheet-bg{position:fixed;inset:0;z-index:40;background:rgba(10,14,12,.45);display:flex;align-items:flex-end;justify-content:center}
 .sheet{width:100%;max-width:620px;max-height:92%;overflow-y:auto;background:var(--paper);border-radius:20px 20px 0 0;padding:10px max(16px,env(safe-area-inset-right,0px)) calc(22px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));animation:up .22s ease-out;display:flex;flex-direction:column;gap:14px}
-.sheet .grab{width:42px;height:5px;border-radius:5px;background:var(--line);margin:2px auto 4px}
+.sheet .grab{width:48px;height:5px;border-radius:5px;background:var(--muted);opacity:.45;margin:2px auto 4px}
+.sheet{position:relative;touch-action:pan-y}
+.sheet-top{position:sticky;top:-10px;z-index:2;display:flex;justify-content:center;margin:-10px calc(-1 * max(16px,env(safe-area-inset-right,0px))) 0;padding:10px 0 6px;background:var(--paper);cursor:grab}
+.sheet-x{position:absolute;right:max(10px,env(safe-area-inset-right,0px));top:4px;width:40px;height:40px;border-radius:12px;border:1px solid var(--line);background:var(--paper-2);display:grid;place-items:center;color:var(--ink)}
+.sheet>h2:first-of-type{padding-right:44px}
+.sheet.drag{transition:none}.sheet.back{transition:transform .2s ease-out}
 @keyframes up{from{transform:translateY(40px);opacity:.4}}
 label.f{display:flex;flex-direction:column;gap:5px;font-size:.84rem;font-weight:700;color:var(--muted)}
 .inp{width:100%;min-height:46px;padding:10px 12px;border-radius:11px;border:1.5px solid var(--line);background:var(--paper-2);color:var(--ink);font-size:1rem}
@@ -547,7 +552,7 @@ function vHeute(){const t=today(),d=new Date();const hr=d.getHours();const greet
  const overdue=openTasks().filter(x=>x.due&&x.due<t);
  const evT=eventsOn(t),evM=eventsOn(addDays(t,1));
  const bdays=[];for(let k=0;k<=14;k++){const day=addDays(t,k);S.events.filter(e=>e.kind==='geburtstag'&&occurs(e,day)).forEach(e=>bdays.push({e,day,k}))}
- const buddies=openTasks().filter(x=>x.buddy&&x.buddy.name&&!x.started&&x.due&&x.due<=t&&(!x.buddy.by||`${pad(hr)}:${pad(d.getMinutes())}`>=x.buddy.by));
+ const buddies=openTasks().filter(x=>x.buddy&&x.buddy.name&&!x.started&&x.due&&x.due<=t&&(x.due<t||!x.buddy.by||`${pad(hr)}:${pad(d.getMinutes())}`>=x.buddy.by));
  const soon=S.recurring.filter(r=>r.next&&diff(t,r.next)>=0&&diff(t,r.next)<=45).sort((a,b)=>a.next.localeCompare(b.next));
  let h=head(`${greet}${S.name?`, ${esc(S.name)}`:''}`,fmtD(t,true)==='heute'?`${WDL[d.getDay()]}, ${d.getDate()}. ${MON[d.getMonth()]}`:fmtD(t,true));
  if(S.set.freizeit)h+=`<div class="freizeit${F.open?' open':''}"><div class="ic">${F.open?ICON.unlock:ICON.lock}</div><div class="grow"><h3>${F.open?'Freizeit ist frei':'Freizeit noch zu'}</h3><p class="small muted">${F.open?'TV, Zocken, Couch. Mit gutem Gewissen.':[F.left?`${F.left} Routine${F.left>1?'n':''}`:'',F.needTask?'eine Aufgabe anfangen':''].filter(Boolean).join(' und ')+' bis zur Freigabe'}</p></div></div>`;
@@ -936,6 +941,7 @@ function reminderList(){const now=Date.now();const L=[];const add=(id,title,body
  if(S.set.remind){const lead=(+S.set.remindMin||30)*60000;for(let k=0;k<7;k++){const day=addDays(today(),k);eventsOn(day).forEach(e=>{if(!e.time)return;const[h,m]=e.time.split(':').map(Number);const d=P(day);d.setHours(h,m,0,0);add(`kk-ev-${e.id}-${day}`,cut(`${e.time} ${evLabel(e,day)}`,40),lead>=86400000?`morgen · ${CATS[e.cat]}`:`in ${lead>=3600000?lead/3600000+' Std':lead/60000+' Min'} · ${CATS[e.cat]}`,d.getTime()-lead)});
   S.tasks.filter(t=>!t.done&&!t.archived&&t.due===day).forEach(t=>{const d=P(day);d.setHours(9,0,0,0);add(`kk-tk-${t.id}-${day}`,cut('Fällig: '+t.title,40),t.cost&&+t.cost.eur?`Sonst ${eur(t.cost.eur)} · 5 Min reichen`:'5 Min anfangen reicht',d.getTime())})}
   {const t0=today(),wd=P(t0).getDay();const sun=addDays(t0,(7-wd)%7);const d=P(sun);d.setHours(18,0,0,0);if(!(S.weeks&&S.weeks[weekKey(sun)]&&S.weeks[weekKey(sun)].done))add('kk-week-'+weekKey(sun),'Wochen-Rückblick','5 Min · 3 Ziele · +20 Punkte',d.getTime())}
+  S.tasks.filter(x=>!x.done&&!x.archived&&!x.started&&x.buddy&&x.buddy.name&&x.buddy.by&&x.due).forEach(x=>{const[h,m]=x.buddy.by.split(':').map(Number);const d=P(x.due);d.setHours(h,m,0,0);add(`kk-buddy-${x.id}-${x.due}`,cut('Noch nicht angefangen: '+x.title,40),`Jetzt 5 Min starten oder ${x.buddy.name} schreiben`,d.getTime())});
   objs().filter(isRented).forEach(o=>{for(let k=0;k<2;k++){const m=ymOf(addMonths(today().slice(0,8)+'01',k));if(rentState(o,m)==='paid')continue;const d=P(addDays(rentDue(o,m),2));d.setHours(9,0,0,0);add(`kk-rent-${o.id}-${m}`,cut('Miete prüfen: '+o.name,40),`${MON[+m.slice(5)-1]}${o.miete?' · '+eur(o.miete):''}`,d.getTime())}});
   S.routines.filter(r=>r.time).forEach(r=>{const day=rDue(r)&&!r.days.includes(today())?today():rNext(r);const[h,m]=r.time.split(':').map(Number);const d=P(day);d.setHours(h,m,0,0);add(`kk-rt-${r.id}-${day}`,cut(r.title,40),`Routine · ${rLabel(r)}`,d.getTime())})}
  return L}
@@ -970,7 +976,11 @@ function go(tab){UI.tab=tab;try{history.replaceState(null,'','#'+tab)}catch(e){}
 
 /* ---------- Sheets ---------- */
 let sheetClose=null;
-function sheet(html,onMount){const host=$('#sheetHost');host.innerHTML=`<div class="sheet-bg" data-act="bgclose"><div class="sheet" role="dialog" aria-modal="true"><div class="grab"></div>${html}</div></div>`;onMount&&onMount(host.querySelector('.sheet'));const f=host.querySelector('[autofocus]');f&&setTimeout(()=>f.focus(),60)}
+function sheet(html,onMount){const host=$('#sheetHost');host.innerHTML=`<div class="sheet-bg" data-act="bgclose"><div class="sheet" role="dialog" aria-modal="true"><div class="sheet-top"><div class="grab"></div><button class="sheet-x" data-act="close" aria-label="Schließen">${ICON.x}</button></div>${html}</div></div>`;const sh=host.querySelector('.sheet');swipeClose(sh);onMount&&onMount(sh);const f=host.querySelector('[autofocus]');f&&setTimeout(()=>f.focus(),60)}
+function swipeClose(sh){let y0=null,dy=0,drag=false;const bg=sh.parentElement;
+ sh.addEventListener('touchstart',e=>{const fromTop=e.target.closest('.sheet-top');if(sh.scrollTop>2&&!fromTop){y0=null;return}if(e.target.closest('input,textarea,select'))return;y0=e.touches[0].clientY;dy=0;drag=false},{passive:true});
+ sh.addEventListener('touchmove',e=>{if(y0===null)return;dy=e.touches[0].clientY-y0;if(dy<=0&&!drag){y0=null;return}if(dy>8)drag=true;if(drag){e.preventDefault();sh.classList.add('drag');sh.classList.remove('back');sh.style.transform=`translateY(${Math.max(0,dy)}px)`;bg.style.background=`rgba(10,14,12,${Math.max(.05,.45-dy/700)})`}},{passive:false});
+ sh.addEventListener('touchend',()=>{if(y0===null)return;y0=null;if(drag&&dy>110){sh.style.transform='translateY(100%)';setTimeout(closeSheet,120)}else{sh.classList.remove('drag');sh.classList.add('back');sh.style.transform='';bg.style.background=''}drag=false});}
 function closeSheet(){$('#sheetHost').innerHTML='';sheetClose&&sheetClose();sheetClose=null}
 function confirmSheet(title,text,okLabel,onOk,danger){sheet(`<h2>${esc(title)}</h2><p class="muted">${esc(text)}</p><div class="row"><button class="btn grow" data-act="close">Abbrechen</button><button class="btn grow ${danger?'danger':'pri'}" id="cOk">${esc(okLabel)}</button></div>`,s=>s.querySelector('#cOk').onclick=()=>{closeSheet();onOk()})}
 const catSelect=(id,val)=>`<label class="f">Bereich<select class="inp" id="${id}">${Object.keys(CATS).map(c=>`<option value="${c}" ${val===c?'selected':''}>${CATS[c]}${CATHINT[c]?` (${CATHINT[c]})`:''}</option>`).join('')}</select></label>`;
@@ -1022,7 +1032,7 @@ function taskSheet(id){const isNew=!id;const t=S.tasks.find(x=>x.id===id)||{id:u
  <div class="grid2"><label class="f">Aufschieben kostet (€)<input class="inp" type="number" inputmode="decimal" id="tK" value="${t.cost?t.cost.eur:''}" placeholder="0"></label><label class="f">Wofür?<input class="inp" id="tKn" value="${esc(t.cost?t.cost.note:'')}" placeholder="Mahngebühr, Strafe …"></label></div>
  <div class="stack"><div class="row between"><h3>Mini-Schritte</h3><button class="btn sm" id="tSug">Vorschlagen</button></div><div class="steps" id="tSteps">${stepsHtml()}</div><button class="btn sm ghost" id="tAdd" style="align-self:flex-start">+ Schritt</button></div>
  <label class="f">Belohnung dabei (Reizkopplung)<input class="inp" id="tB" value="${esc(t.bundle||'')}" placeholder="z. B. Lieblings-Podcast nur dabei hören"></label>
- <details ${t.buddy?'open':''}><summary>Buddy, der dich anschubst</summary><div class="stack" style="margin-top:8px"><div class="grid2"><label class="f">Name<input class="inp" id="tBn" value="${esc(t.buddy?t.buddy.name:'')}"></label><label class="f">Telefon<input class="inp" type="tel" id="tBp" value="${esc(t.buddy?t.buddy.phone:'')}"></label></div><label class="f">Angefangen bis (Uhrzeit am Fälligkeitstag)<input class="inp" type="time" id="tBy" value="${esc(t.buddy?t.buddy.by:'')}"></label><p class="small muted">Kleinkram schickt nichts selbst. Ist die Zeit vorbei, schlägt die App dir eine Nachricht vor. Absenden tust du.</p></div></details>
+ <details ${t.buddy?'open':''}><summary>Buddy, der dich anschubst</summary><div class="stack" style="margin-top:8px"><div class="grid2"><label class="f">Name<input class="inp" id="tBn" value="${esc(t.buddy?t.buddy.name:'')}"></label><label class="f">Telefon<input class="inp" type="tel" id="tBp" value="${esc(t.buddy?t.buddy.phone:'')}"></label></div><label class="f">Angefangen bis (Uhrzeit am Fälligkeitstag)<input class="inp" type="time" id="tBy" value="${esc(t.buddy?t.buddy.by:'')}"></label><p class="small muted">Kleinkram schickt nichts selbst. Ist die Uhrzeit am Fälligkeitstag vorbei und die Aufgabe noch nicht angefangen, bekommst du eine Erinnerung und auf „Heute“ den Vorschlag, ${t.buddy&&t.buddy.name?esc(t.buddy.name):'deinem Buddy'} zu schreiben. Absenden tust du.</p>${t.buddy&&t.buddy.name?`<button class="btn" id="tBnow">Jetzt Nachricht an ${esc(t.buddy.name)}</button>`:''}</div></details>
  <div class="row"><button class="btn pri grow" id="tS">Speichern</button>${isNew?'':`<button class="btn" id="tDone">Erledigt</button>`}</div>
  ${isNew?'':`<div class="row"><button class="btn ghost grow" id="tArc">Streichen (ins Archiv)</button><button class="btn ghost danger" id="tX">Löschen</button></div>`}`,s=>{
  const box=s.querySelector('#tSteps');const re=()=>{box.innerHTML=stepsHtml()};
@@ -1031,7 +1041,8 @@ function taskSheet(id){const isNew=!id;const t=S.tasks.find(x=>x.id===id)||{id:u
  s.querySelector('#tSug').onclick=()=>{const title=val('tT')||t.title;steps=steps.filter(x=>x.t.trim()).concat(suggestSteps(title));re()};
  s.querySelector('#tAdd').onclick=()=>{steps.push({t:'',done:false});re();box.querySelector(`[data-st="${steps.length-1}"]`).focus()};
  const collect=()=>{const title=val('tT');if(!title){toast('Gib der Aufgabe einen Titel.');return false}const k=+val('tK');Object.assign(t,{title,cat:val('tC'),due:val('tD')||null,cost:k>0?{eur:k,note:val('tKn')}:null,steps:steps.filter(x=>x.t.trim()),bundle:val('tB'),buddy:val('tBn')?{name:val('tBn'),phone:val('tBp'),by:val('tBy')}:null});delete t.example;if(isNew)S.tasks.push(t);save();return true};
- s.querySelector('#tS').onclick=()=>{if(collect()){closeSheet();render();toast('Gespeichert')}};
+ s.querySelector('#tS').onclick=()=>{if(collect()){closeSheet();render();toast(t.buddy&&t.buddy.by&&t.due?`Gespeichert. ${t.buddy.name} ist dein Buddy ab ${t.buddy.by} Uhr am ${fmtDate(t.due)}.`:'Gespeichert')}};
+ const bn=s.querySelector('#tBnow');bn&&(bn.onclick=()=>{if(collect()){closeSheet();buddySheet(t.id)}});
  const dn=s.querySelector('#tDone');dn&&(dn.onclick=()=>{if(collect()){closeSheet();completeTask(t.id)}});
  const ar=s.querySelector('#tArc');ar&&(ar.onclick=()=>{t.archived=true;save();closeSheet();render();toast('Gestrichen. Völlig okay.')});
  const x=s.querySelector('#tX');x&&(x.onclick=()=>confirmSheet('Aufgabe löschen?','Sie verschwindet ganz, auch aus dem Archiv.','Löschen',()=>{S.tasks=S.tasks.filter(z=>z.id!==t.id);save();render()},true))})}
@@ -1062,8 +1073,14 @@ function restartSheet(){const od=openTasks().filter(x=>x.due&&x.due<today());con
  s.querySelector('#rsGo').onclick=()=>{let i=0;od.forEach(x=>{if(keep.has(x.id)){x.due=addDays(today(),Math.floor(i/2));x.postponed=0;i++}else x.archived=true});save();closeSheet();stamp('Neustart');pts(10,'Frischer Start');render()}})}
 
 /* Buddy-Nachricht (nie automatisch) */
-function buddySheet(id){const t=S.tasks.find(x=>x.id===id);if(!t||!t.buddy)return;const msg=`Hey ${t.buddy.name}, ich wollte heute „${t.title}“ anfangen und hab's noch nicht gemacht. Schubs mich mal an!`;
- sheet(`<h2>Nachricht an ${esc(t.buddy.name)}</h2><textarea class="inp" id="bm">${esc(msg)}</textarea>${t.buddy.phone?`<div class="copyrow"><span class="grow mono">${esc(t.buddy.phone)}</span></div>`:''}<div class="row"><button class="btn pri grow" id="bmsh">Teilen (WhatsApp, Signal …)</button></div><div class="row"><button class="btn grow" id="bmc">Text kopieren</button>${t.buddy.phone?`<a class="btn grow" id="bms" href="sms:${encodeURIComponent(t.buddy.phone)}?body=${encodeURIComponent(msg)}" target="_blank" rel="noopener">SMS öffnen</a>`:''}</div><p class="small muted">Du entscheidest, ob und wie du sie abschickst.</p><button class="btn ghost" id="bmStart">Lieber selbst anfangen: 5 Minuten</button>`,s=>{
+const intlPhone=p=>{let x=String(p||'').replace(/[^\d+]/g,'');if(x.startsWith('+'))return x.slice(1);if(x.startsWith('00'))return x.slice(2);if(x.startsWith('0'))return'49'+x.slice(1);return x};
+function buddySheet(id){const t=S.tasks.find(x=>x.id===id);if(!t||!t.buddy)return;const msg=`Hey ${t.buddy.name}, ich wollte ${t.due&&t.due<today()?'eigentlich schon':'heute'} „${t.title}“ anfangen und hab's noch nicht gemacht. Schubs mich mal an!`;const ph=t.buddy.phone;
+ sheet(`<h2>Nachricht an ${esc(t.buddy.name)}</h2><textarea class="inp" id="bm">${esc(msg)}</textarea>
+ ${ph?`<div class="row"><button class="btn pri grow" id="bmw">WhatsApp</button><button class="btn grow" id="bms">SMS</button></div>`:''}<div class="row"><button class="btn${ph?'':' pri'} grow" id="bmsh">Teilen (Signal, Telegram …)</button><button class="btn grow" id="bmc">Kopieren</button></div>
+ ${ph?'':'<p class="small muted">Trag in der Aufgabe eine Telefonnummer ein, dann öffnet Kleinkram WhatsApp oder SMS direkt mit dem Text.</p>'}<p class="small muted">Du entscheidest, ob und wie du sie abschickst.</p><button class="btn ghost" id="bmStart">Lieber selbst anfangen: 5 Minuten</button>`,s=>{
+ const txt=()=>s.querySelector('#bm').value;const w=s.querySelector('#bmw'),sm=s.querySelector('#bms');
+ w&&(w.onclick=()=>{openOutside(`https://wa.me/${intlPhone(ph)}?text=${encodeURIComponent(txt())}`);pts(2,'Um Hilfe gebeten')});
+ sm&&(sm.onclick=()=>{openOutside(`sms:${String(ph).replace(/[^\d+]/g,'')}?body=${encodeURIComponent(txt())}`);pts(2,'Um Hilfe gebeten')});
  s.querySelector('#bmc').onclick=()=>copy(s.querySelector('#bm').value,s.querySelector('#bm'));s.querySelector('#bmsh').onclick=()=>{if(!share(s.querySelector('#bm').value))copy(s.querySelector('#bm').value,s.querySelector('#bm'))};s.querySelector('#bmStart').onclick=()=>{closeSheet();focusMode(t.id)}})}
 function copy(text,el){if(nat('copyToClipboard',String(text))){toast('Kopiert');return}try{navigator.clipboard.writeText(text).then(()=>toast('Kopiert'),()=>{sel(el)})}catch(e){sel(el)}function sel(el){if(el&&el.select){el.focus();el.select();toast('Markiert. Jetzt kopieren.')}else toast('Kopieren ging nicht.')}}
 
@@ -1280,6 +1297,12 @@ document.addEventListener('input',e=>{if(e.target.id==='docQ'){const q=e.target.
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&$('#sheetHost').innerHTML)closeSheet()});
 window.addEventListener('hashchange',()=>{const h=location.hash.slice(1);if(NAV.some(n=>n[0]===h)&&h!==UI.tab){UI.tab=h;render()}});
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&!$('#focusHost').innerHTML){render();if(CAP)scheduleAll()}});
+
+/* ---------- Android: Zurück-Taste, Statusleiste ---------- */
+function onBack(){if($('#sheetHost').innerHTML){closeSheet();return true}const fx=document.querySelector('[data-f="close"]');if(fx){fx.click();return true}if(UI.tab!=='heute'){go('heute');return true}return false}
+if(CAP){try{CapP('App').addListener('backButton',()=>{if(!onBack()){try{CapP('App').minimizeApp()}catch(e){}}})}catch(e){}
+ const sb=()=>{const dark=window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches;try{const SB=CapP('StatusBar');SB.setStyle({style:dark?'DARK':'LIGHT'}).catch(()=>{});SB.setBackgroundColor({color:dark?'#121815':'#ECEFE9'}).catch(()=>{})}catch(e){}};
+ sb();try{matchMedia('(prefers-color-scheme: dark)').addEventListener('change',sb)}catch(e){}}
 
 /* ---------- Start ---------- */
 (function(){const h=location.hash.slice(1);if(NAV.some(n=>n[0]===h))UI.tab=h;IDB.open().then(render);render();setTimeout(scheduleAll,2000)})();

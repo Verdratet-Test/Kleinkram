@@ -45,6 +45,7 @@ jobs:
           npx cap sync android
           mkdir -p android/app/src/main/java/de/kleinkram/app
           cp native/*.java android/app/src/main/java/de/kleinkram/app/
+          python3 native/theme.py android/app/src/main/res
           rm -rf android/app/src/main/res/mipmap-anydpi-v26
           cp -r resources/android/* android/app/src/main/res/
           sed -i 's#<uses-permission android:name="android.permission.INTERNET" />#<uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.CAMERA" />\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />\n    <uses-permission android:name="android.permission.VIBRATE" />#' android/app/src/main/AndroidManifest.xml
