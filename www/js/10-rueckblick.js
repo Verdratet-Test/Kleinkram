@@ -1,0 +1,20 @@
+/* Kleinkram · Wochen-Rückblick und Wochenziele */
+"use strict";
+/* ---------- Wochen-Rückblick ---------- */
+function weekKey(d){const x=P(d);const wd=(x.getDay()+6)%7;x.setDate(x.getDate()-wd+3);const y=x.getFullYear();const j4=new Date(y,0,4);const wk=1+Math.round(((x-j4)/864e5-3+((j4.getDay()+6)%7))/7);return`${y}-W${pad(wk)}`}
+const weekMon=d=>addDays(d,-((P(d).getDay()+6)%7));
+function reviewTarget(){const t=today(),wd=P(t).getDay();const tg=wd===0?t:wd===1?addDays(t,-1):null;if(!tg)return null;S.weeks=S.weeks||{};return S.weeks[weekKey(tg)]&&S.weeks[weekKey(tg)].done?null:tg}
+function weekStats(sun){const mon=weekMon(sun),inW=d=>d&&d>=mon&&d<=sun;const done=S.tasks.filter(x=>inW(x.done));let due=0,ok=0;for(let d=mon;d<=sun&&d<=today();d=addDays(d,1))S.routines.forEach(r=>{if(rDue(r,d)||r.days.includes(d)){due++;if(r.days.includes(d))ok++}});
+ const pts_=S.log.filter(l=>inW(l.d)).reduce((a,l)=>a+l.n,0),pot=S.pot.entries.filter(e=>inW(e.d)).reduce((a,e)=>a+e.eur,0);return{mon,sun,done,rPct:due?Math.round(ok/due*100):0,pts:pts_,pot}}
+function reviewSheet(){const sun=reviewTarget()||(P(today()).getDay()===0?today():addDays(weekMon(today()),-1));const W=weekStats(sun),key=weekKey(sun),next=weekKey(addDays(sun,1));const cand=ranked().slice(0,8);const chosen=new Set(S.tasks.filter(x=>x.weekGoal===next&&!x.done).map(x=>x.id));
+ sheet(`<h2>Wochen-Rückblick</h2><p class="small muted">${fmtDate(W.mon)} bis ${fmtDate(W.sun)} · 5 Minuten, dann bist du durch.</p>
+ <div class="grid2"><div class="card" style="padding:12px"><p class="small muted">Erledigt</p><p class="amount" style="font-size:1.6rem">${W.done.length}</p></div><div class="card" style="padding:12px"><p class="small muted">Routinen geschafft</p><p class="amount" style="font-size:1.6rem">${W.rPct} %</p></div><div class="card" style="padding:12px"><p class="small muted">Punkte</p><p class="amount" style="font-size:1.6rem">+${W.pts}</p></div><div class="card" style="padding:12px"><p class="small muted">Gespart</p><p class="amount" style="font-size:1.6rem">${eur(W.pot)}</p></div></div>
+ ${W.done.length?`<details><summary>Das hast du geschafft</summary>${W.done.slice(0,12).map(x=>`<div class="li"><span class="chip stamp">✓</span><div class="grow"><p class="small">${esc(x.title)}</p></div></div>`).join('')}</details>`:'<p class="small muted">Diese Woche nichts abgehakt. Passiert. Die nächste wird besser.</p>'}
+ <h3>Nächste Woche: deine 3 Ziele</h3><p class="small muted">Wähle höchstens drei. Sie stehen dann oben auf „Heute“.</p>
+ <div class="stack" style="gap:6px">${cand.map(x=>`<label class="li" style="cursor:pointer;border:1px solid var(--line);border-radius:12px"><input type="checkbox" data-goal="${x.id}" ${chosen.has(x.id)?'checked':''} style="width:22px;height:22px;accent-color:var(--stamp)"><div class="grow"><p class="small">${esc(x.title)}</p>${x.due?`<p class="small muted">fällig ${fmtD(x.due)}</p>`:''}</div></label>`).join('')||'<p class="small muted">Keine offenen Aufgaben.</p>'}</div>
+ <label class="f">Oder ein neues Ziel<input class="inp" id="gNew" placeholder="z. B. Keller ausmisten"></label>
+ <button class="btn pri block" id="rvDone">Woche abschließen (+20 Punkte)</button>`,s=>{
+ const box=s.querySelectorAll('[data-goal]');box.forEach(c=>c.onchange=()=>{const n=[...box].filter(x=>x.checked).length+(val('gNew')?1:0);if(n>3){c.checked=false;toast('Höchstens drei Ziele.')}});
+ s.querySelector('#rvDone').onclick=()=>{const ids=[...box].filter(x=>x.checked).map(x=>x.dataset.goal);S.tasks.forEach(x=>{if(x.weekGoal===next&&!ids.includes(x.id))delete x.weekGoal});ids.forEach(id=>{const x=S.tasks.find(z=>z.id===id);if(x)x.weekGoal=next});
+  const nw=val('gNew');if(nw&&ids.length<3)S.tasks.push({id:uid(),title:nw,cat:guessCat(nw),due:addDays(sun,5),created:today(),postponed:0,started:false,done:null,steps:[],cost:null,bundle:'',buddy:null,weekGoal:next});
+  S.weeks=S.weeks||{};const first=!S.weeks[key]||!S.weeks[key].done;S.weeks[key]={done:today(),goals:ids};save();closeSheet();if(first){stamp('Woche geplant');pts(20,'Wochen-Rückblick')}render()}})}
