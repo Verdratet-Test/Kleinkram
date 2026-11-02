@@ -630,7 +630,7 @@ function vIch(){const L=level();const pot=potNow();const last=(S.pot.payouts.sli
  <label class="switch"><span>An Termine und fällige Aufgaben erinnern</span><input type="checkbox" data-set="remind" ${S.set.remind?'checked':''}></label>
  <label class="f">Termin-Erinnerung vorher<select class="inp" id="setRemindMin">${[[10,'10 Minuten'],[30,'30 Minuten'],[60,'1 Stunde'],[120,'2 Stunden'],[1440,'1 Tag']].map(([k,l])=>`<option value="${k}" ${+(S.set.remindMin||30)===k?'selected':''}>${l}</option>`).join('')}</select></label>
  <div class="row"><button class="btn sm" data-act="notifPerm">Benachrichtigungen erlauben</button><button class="btn sm" data-act="notifTest">Test in 1 Minute</button>${nat('canScheduleExactAlarms')===false?'<button class="btn sm" data-act="alarmPerm">Genaue Wecker erlauben</button>':''}</div>
- ${CAP?'<p class="small muted">Routinen mit Uhrzeit erinnern dich ebenfalls.</p>':'<p class="small muted">Geplante Erinnerungen sind im HTML-to-APK-Konverter eine Pro-Funktion. Kommt der Test nicht an, liegt es daran. Mit dem GitHub-Weg gibt es sie ohne Pro.</p>'}`);
+ ${CAP?'<div class="stack" id="notifState" style="gap:4px"><p class="small muted">Prüfe Einstellungen …</p></div><div class="row"><button class="btn sm" data-act="notifNow">Sofort testen</button><button class="btn sm" data-act="exactPerm">Pünktlich erinnern erlauben</button></div><details><summary class="small">Xiaomi: Erinnerungen kommen zu spät?</summary><p class="small muted">Handy-Einstellungen → Apps → Apps verwalten → Kleinkram: <b>Autostart</b> einschalten und bei <b>Akku-Sparmodus</b> „Keine Einschränkungen“ wählen. Sonst hält HyperOS die App an und Erinnerungen fallen aus.</p></details><p class="small muted">Routinen mit Uhrzeit erinnern dich ebenfalls.</p>':'<p class="small muted">Geplante Erinnerungen sind im HTML-to-APK-Konverter eine Pro-Funktion. Kommt der Test nicht an, liegt es daran. Mit dem GitHub-Weg gibt es sie ohne Pro.</p>'}`);
  h+=reg('Daten',null,`<p class="small muted">Alles bleibt auf diesem Gerät. Kein Konto, kein Server. ${S.lastBackup?`Letzte Sicherung: ${fmtD(S.lastBackup)}.`:'Noch keine Sicherung als Datei.'}</p><div class="row"><button class="btn sm" data-act="backup">Sicherung anzeigen</button><button class="btn sm" data-act="restore">Sicherung einspielen</button></div>`);
  return h}
 
@@ -789,25 +789,32 @@ function briefShort(day){const R=ranked(),ev=eventsOn(day).filter(e=>e.kind!=='g
 function briefText(day){const R=ranked(),ev=eventsOn(day),open=S.routines.length;const parts=[];
  if(R[0])parts.push(`Zuerst: ${R[0].title}`);if(ev.length)parts.push('Termine: '+ev.slice(0,4).map(e=>(e.time?e.time+' ':'')+evLabel(e,day)).join(', '));else parts.push('Keine Termine.');
  if(open)parts.push(`${open} Routinen warten`);return parts.join(' · ')}
-function reminderList(){const now=Date.now();const L=[];const add=(id,title,body,at)=>{if(at>now+30000)L.push({id,title,body,at:Math.round(at)})};
+function reminderList(){const now=Date.now();const L=[];const add=(id,title,body,at)=>{if(at>now+5000)L.push({id,title,body,at:Math.round(at)})};
  if(S.set.brief){const[h,m]=(S.set.briefTime||'07:00').split(':').map(Number);for(let k=0;k<2;k++){const d=new Date();d.setDate(d.getDate()+k);d.setHours(h,m,0,0);const day=iso(d);const B=briefShort(day);add('kk-brief-'+day,B.title,B.body,d.getTime())}}
  if(S.set.remind){const lead=(+S.set.remindMin||30)*60000;for(let k=0;k<7;k++){const day=addDays(today(),k);eventsOn(day).forEach(e=>{if(!e.time)return;const[h,m]=e.time.split(':').map(Number);const d=P(day);d.setHours(h,m,0,0);add(`kk-ev-${e.id}-${day}`,cut(`${e.time} ${evLabel(e,day)}`,40),lead>=86400000?`morgen · ${CATS[e.cat]}`:`in ${lead>=3600000?lead/3600000+' Std':lead/60000+' Min'} · ${CATS[e.cat]}`,d.getTime()-lead)});
   S.tasks.filter(t=>!t.done&&!t.archived&&t.due===day).forEach(t=>{const d=P(day);d.setHours(9,0,0,0);add(`kk-tk-${t.id}-${day}`,cut('Fällig: '+t.title,40),t.cost&&+t.cost.eur?`Sonst ${eur(t.cost.eur)} · 5 Min reichen`:'5 Min anfangen reicht',d.getTime())})}
   S.routines.filter(r=>r.time).forEach(r=>{const day=rDue(r)&&!r.days.includes(today())?today():rNext(r);const[h,m]=r.time.split(':').map(Number);const d=P(day);d.setHours(h,m,0,0);add(`kk-rt-${r.id}-${day}`,cut(r.title,40),`Routine · ${rLabel(r)}`,d.getTime())})}
  return L}
 async function scheduleCap(L){const LN=CapP('LocalNotifications');try{const p=await LN.getPending();if(p.notifications&&p.notifications.length)await LN.cancel({notifications:p.notifications.map(n=>({id:n.id}))})}catch(e){}
- if(L.length)try{await LN.schedule({notifications:L.map(x=>({id:hid(x.id),title:x.title,body:x.body,schedule:{at:new Date(x.at),allowWhileIdle:true}}))})}catch(e){}}
+ if(L.length)try{await LN.schedule({notifications:L.map(x=>({id:hid(x.id),title:x.title,body:x.body,schedule:{at:new Date(x.at),allowWhileIdle:true}}))})}catch(e){}if(UI.tab==='ich')notifStatus()}
 function scheduleAll(){const L=reminderList();if(CAP){scheduleCap(L);return}const n=NAT();if(!n||typeof n.scheduleNotification!=='function')return;
  (S.sched||[]).forEach(id=>nat('cancelScheduledNotification',id));const ids=[];L.forEach(x=>{if(nat('scheduleNotification',x.id,x.title,x.body,x.at)!==undefined)ids.push(x.id)});
  S.sched=ids;try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
 let schedT;function scheduleSoon(){clearTimeout(schedT);schedT=setTimeout(scheduleAll,1200)}
+
+async function notifStatus(){const box=document.getElementById('notifState');if(!box||!CAP)return;const LN=CapP('LocalNotifications');const row=(ok,txt)=>`<p class="small"><span class="chip ${ok?'ok':'crit'}">${ok?'OK':'fehlt'}</span> ${txt}</p>`;let h='';
+ try{const p=await LN.checkPermissions();h+=row(p.display==='granted','Benachrichtigungen erlaubt')}catch(e){h+=row(false,'Benachrichtigungen: Plugin fehlt ('+esc(e&&e.message||e)+')')}
+ try{const x=await LN.checkExactNotificationSetting();h+=row(x.exact_alarm==='granted','Pünktliche Erinnerungen (genaue Wecker)')}catch(e){}
+ try{const q=await LN.getPending();const n=(q.notifications||[]).length;h+=`<p class="small muted">${n} Erinnerung${n===1?'':'en'} geplant${n?'. Nächste: '+esc(fmtNext(q.notifications)):''}</p>`}catch(e){}
+ box.innerHTML=h}
+function fmtNext(ns){const t=ns.map(n=>new Date(n.schedule&&n.schedule.at||n.extra&&n.extra.at||0)).filter(d=>+d>0).sort((a,b)=>a-b)[0];if(!t)return'';return `${fmtD(iso(t))} ${pad(t.getHours())}:${pad(t.getMinutes())}`}
 
 /* ---------- Rendern ---------- */
 function render(){S.contracts=S.contracts||[];syncRecurring();syncContracts();const v=$('#view');
  v.innerHTML=({heute:vHeute,kalender:vKalender,aufgaben:vAufgaben,ablage:vAblage,ich:vIch}[UI.tab]||vHeute)();
  $('#nav').innerHTML=NAV.map(([k,l,p])=>`<button class="${UI.tab===k?'on':''}" data-act="go" data-to="${k}" aria-current="${UI.tab===k?'page':'false'}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${p}</svg>${l}</button>`).join('');
  v.querySelectorAll('img[data-img]').forEach(im=>IDB.get(im.dataset.img).then(src=>{if(src)im.src=src}));
- const si=$('#scanInput');if(si)si.onchange=e=>{const f=e.target.files[0];e.target.value='';if(f)scanFile(f)};}
+ if(CAP&&UI.tab==='ich')setTimeout(notifStatus,50);const si=$('#scanInput');if(si)si.onchange=e=>{const f=e.target.files[0];e.target.value='';if(f)scanFile(f)};}
 function go(tab){UI.tab=tab;try{history.replaceState(null,'','#'+tab)}catch(e){}render();window.scrollTo(0,0)}
 
 /* ---------- Sheets ---------- */
@@ -1094,9 +1101,11 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-act]');if
  case'taxpack':taxPackSheet(+el.dataset.y);break;
  case'abl':UI.abl=el.dataset.k;render();break;
  case'contract':contractSheet(id);break;
- case'notifPerm':if(CAP){CapP('LocalNotifications').requestPermissions().then(r=>toast(r.display==='granted'?'Benachrichtigungen erlaubt':'Nicht erlaubt. In den Handy-Einstellungen änderbar.')).catch(()=>{});break}if(nat('requestNotificationPermission','kk-perm')===undefined)toast('Geht nur in der App.');break;
+ case'notifPerm':if(CAP){CapP('LocalNotifications').requestPermissions().then(r=>{toast(r.display==='granted'?'Benachrichtigungen erlaubt':'Nicht erlaubt. In den Handy-Einstellungen änderbar.');scheduleAll();setTimeout(notifStatus,800)}).catch(e=>toast('Fehler: '+(e&&e.message||e)));break}if(nat('requestNotificationPermission','kk-perm')===undefined)toast('Geht nur in der App.');break;
  case'alarmPerm':nat('openExactAlarmSettings');break;
- case'notifTest':{if(CAP){const LN=CapP('LocalNotifications');LN.requestPermissions().then(()=>LN.schedule({notifications:[{id:hid('kk-test'),title:'Kleinkram',body:'Test-Erinnerung angekommen. Es klappt!',schedule:{at:new Date(Date.now()+60000),allowWhileIdle:true}}]})).then(()=>toast('Test geplant. Warte 1 Minute.')).catch(()=>toast('Planen ging nicht.'));break}nat('showNotification','Kleinkram','Benachrichtigungen sind erlaubt.');const r=nat('scheduleNotification','kk-test','Kleinkram','Test-Erinnerung angekommen. Es klappt!',Date.now()+60000);toast(r===undefined?'Planen wird hier nicht unterstützt.':'Test geplant. Warte 1 Minute.');break}}});
+ case'notifNow':{const LN=CapP('LocalNotifications');LN.requestPermissions().then(r=>{if(r.display!=='granted'){toast('Benachrichtigungen sind nicht erlaubt.');return}return LN.schedule({notifications:[{id:hid('kk-now'),title:'Kleinkram',body:'So sieht eine Erinnerung aus.',schedule:{at:new Date(Date.now()+3000),allowWhileIdle:true}}]}).then(()=>toast('Kommt in 3 Sekunden'))}).catch(e=>toast('Fehler: '+(e&&e.message||e)));break}
+ case'exactPerm':{const LN=CapP('LocalNotifications');LN.changeExactNotificationSetting().then(()=>setTimeout(notifStatus,800)).catch(()=>toast('Auf diesem Handy nicht nötig.'));break}
+ case'notifTest':{if(CAP){const LN=CapP('LocalNotifications');LN.requestPermissions().then(()=>LN.schedule({notifications:[{id:hid('kk-test'),title:'Kleinkram',body:'Test-Erinnerung angekommen. Es klappt!',schedule:{at:new Date(Date.now()+60000),allowWhileIdle:true}}]})).then(()=>{toast('Test geplant. Warte 1 Minute.');setTimeout(notifStatus,500)}).catch(e=>toast('Planen ging nicht: '+(e&&e.message||e)));break}nat('showNotification','Kleinkram','Benachrichtigungen sind erlaubt.');const r=nat('scheduleNotification','kk-test','Kleinkram','Test-Erinnerung angekommen. Es klappt!',Date.now()+60000);toast(r===undefined?'Planen wird hier nicht unterstützt.':'Test geplant. Warte 1 Minute.');break}}});
 document.addEventListener('change',e=>{const t=e.target;
  if(t.dataset.set){S.set[t.dataset.set]=t.checked;save();if(t.dataset.set==='oneThing')UI.showAll=false;}
  if(t.dataset.tax){const[y,k,f]=t.dataset.tax.split('.');S.tax[y]=S.tax[y]||{};S.tax[y][k]=S.tax[y][k]||{};S.tax[y][k][f]=+t.value||0;save()}
