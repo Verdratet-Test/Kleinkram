@@ -37,6 +37,7 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-act]');if
  case'payout':payoutSheet();break;
  case'backup':backupSheet();break;
  case'restore':restoreSheet();break;
+ case'reset':resetSheet();break;
  case'ics':exportSheet();break;
  case'planScan':planInfoSheet();break;
  case'rlink':UI.abl='belege';if(el.dataset.l==='unpaid')UI.docFilter='offen';go('ablage');break;
@@ -83,4 +84,4 @@ if(CAP){try{CapP('App').addListener('backButton',()=>{if(!onBack()){try{CapP('Ap
  sb();try{matchMedia('(prefers-color-scheme: dark)').addEventListener('change',sb)}catch(e){}}
 
 /* ---------- Start ---------- */
-(function(){const h=location.hash.slice(1);if(NAV.some(n=>n[0]===h))UI.tab=h;IDB.open().then(render);render();setTimeout(scheduleAll,2000)})();
+(function(){const h=location.hash.slice(1);if(NAV.some(n=>n[0]===h))UI.tab=h;IDB.open().then(render);render();setTimeout(scheduleAll,2000);try{if(sessionStorage.getItem('kk-reset')){sessionStorage.removeItem('kk-reset');setTimeout(()=>toast('Kleinkram ist zurückgesetzt.'),400)}}catch(e){}})();

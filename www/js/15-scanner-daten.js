@@ -92,9 +92,31 @@ function newDocSheet(){let img=null,raw='',dls=[];const y=new Date().getFullYear
 /* ---------- Spar-Topf & Daten ---------- */
 function potAddSheet(){sheet(`<h2>In den Spar-Topf</h2><p class="small muted">Kosten, die du durch Pünktlichkeit vermieden hast.</p><div class="grid2"><label class="f">Betrag (€)<input class="inp" type="number" step="0.01" inputmode="decimal" id="pA" autofocus></label><label class="f">Wofür?<input class="inp" id="pW" placeholder="z. B. Skonto genutzt"></label></div><button class="btn pri block" id="pS">Hinzufügen</button>`,s=>s.querySelector('#pS').onclick=()=>{const a=+val('pA');if(!(a>0)){toast('Betrag fehlt.');return}S.pot.entries.push({id:uid(),d:today(),eur:a,w:val('pW')||'Selbst eingetragen'});save();closeSheet();render();toast(`${eur(a)} im Topf`)})}
 function payoutSheet(){const p=potNow();confirmSheet('Auszahlen',`${eur(p)} gehören dir. Nimm sie dir wirklich und gönn dir was. Der Topf startet danach bei null.`,'Ausgezahlt',()=>{S.pot.payouts.push({d:today(),eur:p});save();stamp('Gegönnt');render()})}
-async function fullBackup(){const imgs={};for(const d of S.docs){if(d.hasImg){const v=await IDB.get(d.id);if(v)imgs[d.id]=v}}return JSON.stringify(Object.assign({},S,{_imgs:imgs}))}
+async function fullBackup(){const imgs={};const keys=[...S.docs.filter(d=>d.hasImg).map(d=>d.id),...(S.warranties||[]).filter(w=>w.hasImg).map(w=>'w-'+w.id)];for(const k of keys){const v=await IDB.get(k);if(v)imgs[k]=v}return JSON.stringify(Object.assign({},S,{_imgs:imgs}))}
 function applyBackup(txt){const o=JSON.parse(txt);if(!o||o.v!==1||!Array.isArray(o.tasks))throw 0;const imgs=o._imgs||{};delete o._imgs;S=o;Object.entries(imgs).forEach(([k,v])=>IDB.put(k,v));save();render()}
 function backupSheet(){const data=JSON.stringify(S);sheet(`<h2>Sicherung</h2><p class="small muted">Am sichersten: als Datei speichern. Sie landet in „Downloads“ und bleibt auch erhalten, wenn die App gelöscht wird. Der Text unten enthält keine Fotos.</p><textarea class="inp mono" id="bk" style="min-height:200px;font-size:.75rem" readonly>${esc(data)}</textarea><div class="row"><button class="btn pri grow" id="bkF">Als Datei speichern (mit Fotos)</button></div><div class="row"><button class="btn grow" id="bkS">Teilen</button><button class="btn grow" id="bkC">Kopieren</button></div>`,s=>{s.querySelector('#bkC').onclick=()=>copy(data,s.querySelector('#bk'));s.querySelector('#bkS').onclick=()=>{if(!share(data))copy(data,s.querySelector('#bk'))};
  s.querySelector('#bkF').onclick=async()=>{const full=await fullBackup();if(saveFile(`kleinkram-sicherung-${today()}.json`,full,'application/json')){S.lastBackup=today();save()}}})}
 function restoreSheet(){sheet(`<h2>Sicherung einspielen</h2><p class="small muted">Ersetzt alle aktuellen Daten auf diesem Gerät.</p><label class="btn block" for="rsF">Sicherungsdatei wählen</label><input type="file" id="rsF" accept=".json,application/json,text/plain" hidden><p class="small muted">oder Text einfügen:</p><textarea class="inp mono" id="rs" style="min-height:180px;font-size:.75rem" placeholder="Sicherungstext einfügen"></textarea><button class="btn pri block" id="rsGo">Einspielen</button>`,s=>{s.querySelector('#rsGo').onclick=()=>{try{applyBackup(val('rs'));closeSheet();toast('Sicherung eingespielt')}catch(e){toast('Das ist keine gültige Kleinkram-Sicherung.')}};
  s.querySelector('#rsF').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{applyBackup(String(r.result));closeSheet();toast('Sicherung eingespielt')}catch(er){toast('Das ist keine gültige Kleinkram-Sicherung.')}};r.readAsText(f)}})}
+
+/* ---------- Werkseinstellungen: alles in der App löschen (zweifach bestätigt) ---------- */
+function resetSheet(){const n=k=>(S[k]||[]).length;
+ sheet(`<h2>Werkseinstellungen</h2><p class="muted">Setzt Kleinkram auf den Zustand nach der Installation zurück.</p>
+ <div class="banner"><div class="grow"><h3>Wird gelöscht</h3><p class="small">${n('tasks')} Aufgaben, ${n('events')} Termine, ${n('routines')} Routinen, ${n('docs')} Belege/Dokumente mit Fotos, ${n('contracts')} Verträge, Haus &amp; Zähler, ${n('warranties')} Garantien, Spar-Topf, Punkte (${S.points}), Einstellungen und alle geplanten Erinnerungen.</p></div></div>
+ <p class="small muted"><b>Bleibt erhalten:</b> gespeicherte Sicherungsdateien, Dateien in Dokumente/Kleinkram und im Kleinkram-Papierkorb, Termine, die schon im Handy-Kalender stehen.</p>
+ ${S.lastBackup?`<p class="small muted">Letzte Sicherung: ${fmtD(S.lastBackup)}.</p>`:'<p class="small"><b>Du hast noch keine Sicherung.</b> Ohne Sicherung ist alles endgültig weg.</p>'}
+ <button class="btn block" data-act="backup">Erst Sicherung speichern</button>
+ <div class="row"><button class="btn grow" data-act="close">Abbrechen</button><button class="btn grow danger" id="rs1">Weiter</button></div>`,s=>s.querySelector('#rs1').onclick=resetSheet2)}
+function resetSheet2(){sheet(`<h2>Wirklich alles löschen?</h2><p class="muted">Das lässt sich nicht rückgängig machen. Zum Bestätigen tippe <b>LÖSCHEN</b> ein.</p>
+ <label class="f">Bestätigung<input class="inp" id="rsW" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="LÖSCHEN"></label>
+ <div class="row"><button class="btn grow" data-act="close">Abbrechen</button><button class="btn grow danger" id="rs2" disabled>Endgültig löschen</button></div>`,s=>{
+  const w=s.querySelector('#rsW'),b=s.querySelector('#rs2');const ok=()=>/^l(ö|oe|o)schen$/i.test(w.value.trim());
+  w.oninput=()=>b.disabled=!ok();b.onclick=()=>{if(ok())factoryReset()};setTimeout(()=>w.focus(),80)})}
+async function factoryReset(){const b=$('#rs2');if(b){b.disabled=true;b.textContent='Lösche …'}
+ const tmo=(p,ms)=>Promise.race([p,new Promise(r=>setTimeout(r,ms||2500))]);
+ if(CAP){try{const LN=CapP('LocalNotifications');const p=await tmo(LN.getPending());if(p&&p.notifications&&p.notifications.length)await tmo(LN.cancel({notifications:p.notifications.map(x=>({id:x.id}))}))}catch(e){}}
+ try{Object.keys(localStorage).filter(k=>/^kleinkram/i.test(k)).forEach(k=>localStorage.removeItem(k))}catch(e){}
+ IDB.mem.clear();try{IDB.db&&IDB.db.close()}catch(e){}IDB.db=null;
+ await tmo(new Promise(r=>{try{const q=indexedDB.deleteDatabase('kleinkram');q.onsuccess=q.onerror=q.onblocked=()=>r()}catch(e){r()}}));
+ S=seed();try{localStorage.removeItem(KEY)}catch(e){}try{sessionStorage.setItem('kk-reset','1')}catch(e){}
+ location.replace(location.pathname+'#heute');location.reload()}

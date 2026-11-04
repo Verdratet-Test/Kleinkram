@@ -31,7 +31,7 @@ Kleinkram ist eine Web-App (HTML, CSS, JavaScript ohne Framework), die mit **Cap
 | `12-aufraeumen.js` | Handy aufräumen: doppelte Fotos/Dateien, Serienbilder, Ereignis-Alben, Screenshots, WhatsApp-Medien, Download sortieren, Papierkorb (Android-Teil: `native/AufraeumenPlugin.java`) |
 | `13-erinnerungen.js` | Benachrichtigungen planen, Signaltöne, Status-Anzeige |
 | `14-oberflaeche.js` | Rendern, Fenster (Sheets) mit Schließen/Wischen, 5-Minuten-Fokus |
-| `15-scanner-daten.js` | Foto-Scanner, Texterkennung (Tesseract), Spar-Topf, Sicherung |
+| `15-scanner-daten.js` | Foto-Scanner, Texterkennung (Tesseract), Spar-Topf, Sicherung, Werkseinstellungen |
 | `16-start.js` | Klicks und Eingaben, Android-Zurück-Taste, Statusleiste, Start |
 | `17-plan-scannen.js` | Plan scannen: Dienst-/Bereitschaftsplan fotografieren, Zeilen bilden, Datum/KW lesen (Lücken im Wochenplan füllen), eigene Zeilen über Name oder Markierung (Kuli, Textmarker) finden, Prüfansicht, als Termine/Aufgaben eintragen |
 
