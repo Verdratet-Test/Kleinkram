@@ -10,6 +10,8 @@ DEPS = [
     "implementation 'com.google.mlkit:text-recognition:16.0.1'",
     # App-Sperre mit Fingerabdruck / Display-Sperre
     "implementation 'androidx.biometric:biometric:1.1.0'",
+    # Fotos nach Inhalt erkennen (Katze, Hund, Essen …), Modell in der App, offline
+    "implementation 'com.google.mlkit:image-labeling:17.0.9'",
 ]
 
 path = sys.argv[1]

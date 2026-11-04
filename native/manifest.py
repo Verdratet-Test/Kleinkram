@@ -12,6 +12,8 @@ perms = [
     'android.permission.READ_MEDIA_VIDEO',
     ('android.permission.READ_EXTERNAL_STORAGE', ' android:maxSdkVersion="32"'),
     'android.permission.MANAGE_EXTERNAL_STORAGE',
+    # Ordnung: Aufnahmeort der Fotos lesen (Reise-Alben), nur im Gerät
+    'android.permission.ACCESS_MEDIA_LOCATION',
 ]
 lines = []
 for x in perms:

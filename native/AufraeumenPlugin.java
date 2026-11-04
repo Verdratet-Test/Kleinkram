@@ -40,6 +40,10 @@ import com.getcapacitor.annotation.PermissionCallback;
 import org.json.JSONObject;
 import com.google.android.gms.tasks.Tasks;
 import com.google.mlkit.vision.common.InputImage;
+import com.google.mlkit.vision.label.ImageLabel;
+import com.google.mlkit.vision.label.ImageLabeler;
+import com.google.mlkit.vision.label.ImageLabeling;
+import com.google.mlkit.vision.label.defaults.ImageLabelerOptions;
 import com.google.mlkit.vision.text.Text;
 import com.google.mlkit.vision.text.TextRecognition;
 import com.google.mlkit.vision.text.TextRecognizer;
@@ -62,7 +66,8 @@ import java.util.List;
     name = "Aufraeumen",
     permissions = {
         @Permission(alias = "media", strings = { Manifest.permission.READ_MEDIA_IMAGES, Manifest.permission.READ_MEDIA_VIDEO }),
-        @Permission(alias = "mediaAlt", strings = { Manifest.permission.READ_EXTERNAL_STORAGE })
+        @Permission(alias = "mediaAlt", strings = { Manifest.permission.READ_EXTERNAL_STORAGE }),
+        @Permission(alias = "location", strings = { Manifest.permission.ACCESS_MEDIA_LOCATION })
     }
 )
 public class AufraeumenPlugin extends Plugin {
@@ -114,7 +119,18 @@ public class AufraeumenPlugin extends Plugin {
         PermissionState s = getPermissionState(mediaAlias());
         r.put("media", s == null ? "prompt" : s.toString().toLowerCase());
         r.put("files", Build.VERSION.SDK_INT >= 30 && Environment.isExternalStorageManager());
+        PermissionState l = Build.VERSION.SDK_INT >= 29 ? getPermissionState("location") : PermissionState.GRANTED;
+        r.put("loc", l == null ? "prompt" : l.toString().toLowerCase());
         call.resolve(r);
+    }
+
+    @PluginMethod
+    public void requestLocation(PluginCall call) {
+        if (Build.VERSION.SDK_INT < 29 || getPermissionState("location") == PermissionState.GRANTED) {
+            status(call);
+            return;
+        }
+        requestPermissionForAlias("location", call, "mediaPermResult");
     }
 
     @PluginMethod
@@ -393,6 +409,110 @@ public class AufraeumenPlugin extends Plugin {
                 try { if (rec != null) rec.close(); } catch (Throwable ignored) { }
             }
         }).start();
+    }
+
+    private static final java.util.Set<String> TIERE = new java.util.HashSet<>(java.util.Arrays.asList(
+            "Cat", "Dog", "Pet", "Bird", "Horse", "Rabbit", "Hamster", "Turtle", "Fish"));
+
+    /**
+     * Ordnung: pro Foto Inhalt (ML Kit Bildlabels, offline), Aufnahmeort (EXIF-GPS, nur gelesen)
+     * und bei Tieren ein Farbprofil (zum Auseinanderhalten mehrerer Haustiere).
+     * Fortschritt über "ordnenFortschritt". Nichts wird verändert.
+     */
+    @PluginMethod
+    public void ordnenAnalyse(final PluginCall call) {
+        final org.json.JSONArray items = call.getData().optJSONArray("items");
+        final boolean doLabels = call.getBoolean("labels", true);
+        final boolean doGeo = call.getBoolean("geo", true);
+        if (items == null) { call.reject("Keine Fotos"); return; }
+        belegStop = false;
+        new Thread(() -> {
+            ImageLabeler lab = null;
+            try {
+                if (doLabels) lab = ImageLabeling.getClient(new ImageLabelerOptions.Builder().setConfidenceThreshold(0.55f).build());
+                ContentResolver cr = getContext().getContentResolver();
+                boolean geoOk = doGeo && Build.VERSION.SDK_INT >= 24 && (Build.VERSION.SDK_INT < 29 || getPermissionState("location") == PermissionState.GRANTED);
+                JSArray out = new JSArray();
+                int n = items.length();
+                for (int i = 0; i < n && !belegStop; i++) {
+                    JSONObject it = items.getJSONObject(i);
+                    JSObject o = new JSObject();
+                    o.put("id", it.optLong("id"));
+                    if (geoOk) {
+                        try {
+                            Uri u = itemUri(it);
+                            if (Build.VERSION.SDK_INT >= 29) u = MediaStore.setRequireOriginal(u);
+                            InputStream in = cr.openInputStream(u);
+                            if (in != null) {
+                                android.media.ExifInterface ex = new android.media.ExifInterface(in);
+                                float[] ll = new float[2];
+                                if (ex.getLatLong(ll) && !(ll[0] == 0f && ll[1] == 0f)) {
+                                    JSArray g = new JSArray();
+                                    g.put(Math.round(ll[0] * 1000) / 1000.0);
+                                    g.put(Math.round(ll[1] * 1000) / 1000.0);
+                                    o.put("g", g);
+                                }
+                                in.close();
+                            }
+                        } catch (Throwable ignored) { }
+                    }
+                    if (lab != null) {
+                        try {
+                            Bitmap bmp = loadThumb(cr, it, 384);
+                            if (bmp != null) {
+                                List<ImageLabel> ls = Tasks.await(lab.process(InputImage.fromBitmap(bmp, 0)));
+                                JSArray la = new JSArray();
+                                boolean tier = false;
+                                for (ImageLabel l : ls) {
+                                    JSArray x = new JSArray();
+                                    x.put(l.getText());
+                                    x.put(Math.round(l.getConfidence() * 100));
+                                    la.put(x);
+                                    if (TIERE.contains(l.getText())) tier = true;
+                                }
+                                o.put("l", la);
+                                if (tier) o.put("h", farbProfil(bmp));
+                                bmp.recycle();
+                            }
+                        } catch (Throwable ignored) { }
+                    }
+                    out.put(o);
+                    if (i % 10 == 0 || i == n - 1) {
+                        JSObject p = new JSObject();
+                        p.put("i", i + 1);
+                        p.put("n", n);
+                        notifyListeners("ordnenFortschritt", p);
+                    }
+                }
+                JSObject r = new JSObject();
+                r.put("items", out);
+                r.put("geo", geoOk);
+                r.put("stopped", belegStop);
+                call.resolve(r);
+            } catch (Throwable e) {
+                call.reject("Analyse ging nicht: " + e.getMessage());
+            } finally {
+                try { if (lab != null) lab.close(); } catch (Throwable ignored) { }
+            }
+        }).start();
+    }
+
+    /** Farbprofil der Bildmitte: 4×4×4 Farbwürfel, Anteile in Promille (64 Zahlen). */
+    private static JSArray farbProfil(Bitmap b) {
+        int w = b.getWidth(), h = b.getHeight();
+        int[] bins = new int[64];
+        int n = 0;
+        for (int y = h / 5; y < h * 4 / 5; y += 2) {
+            for (int x = w / 5; x < w * 4 / 5; x += 2) {
+                int c = b.getPixel(x, y);
+                int r = (c >> 16) & 255, g = (c >> 8) & 255, bl = c & 255;
+                bins[(r >> 6) * 16 + (g >> 6) * 4 + (bl >> 6)]++;
+                n++;
+            }
+        }
+        JSArray a = new JSArray();
+        for (int v : bins) a.put(n == 0 ? 0 : Math.round(v * 1000f / n));
+        return a;
     }
 
     @PluginMethod
