@@ -7,10 +7,10 @@ Kleinkram ist eine Web-App (HTML, CSS, JavaScript ohne Framework), die mit **Cap
 |---|---|
 | `www/index.html` | Grundgerüst: Kopf, Navigation, Platzhalter, lädt CSS und Module |
 | `www/css/app.css` | Gestaltung. Alle Farben als Tokens in `:root`, Dunkelmodus über `prefers-color-scheme` |
-| `www/js/*.js` | Die App in 15 Modulen (siehe unten), werden in Nummern-Reihenfolge geladen |
+| `www/js/*.js` | Die App in 16 Modulen (siehe unten), werden in Nummern-Reihenfolge geladen |
 | `www/sounds/` | Signaltöne zum Vorhören in der App |
 | `www/lib/` | Fremdbibliotheken, werden beim Bau aus npm kopiert (nicht im Repo) |
-| `native/` | Android-Teil: eigenes Plugin (Kalender-Eintrag, Links öffnen), `MainActivity`, Farbschema der Statusleiste (`theme.py`) |
+| `native/` | Android-Teil: `KleinkramNativePlugin` (Kalender-Eintrag, Links öffnen), `AufraeumenPlugin` (Fotos/Dateien), `MainActivity`, `theme.py` (Statusleiste), `manifest.py` (Berechtigungen) |
 | `resources/android/` | App-Icons und Signaltöne (`raw/`) für Android |
 | `.github/workflows/app-bauen.yml` | Baut bei jedem Push APK + Web-App |
 
@@ -28,12 +28,13 @@ Kleinkram ist eine Web-App (HTML, CSS, JavaScript ohne Framework), die mit **Cap
 | `09-garantie.js` | Garantien mit Erinnerung vor Ablauf |
 | `10-rueckblick.js` | Wochen-Rückblick und Wochenziele |
 | `11-vertraege.js` | Verträge, Kündigungsfristen, Fixkosten |
-| `12-erinnerungen.js` | Benachrichtigungen planen, Signaltöne, Status-Anzeige |
-| `13-oberflaeche.js` | Rendern, Fenster (Sheets) mit Schließen/Wischen, 5-Minuten-Fokus |
-| `14-scanner-daten.js` | Foto-Scanner, Texterkennung (Tesseract), Spar-Topf, Sicherung |
-| `15-start.js` | Klicks und Eingaben, Android-Zurück-Taste, Statusleiste, Start |
+| `12-aufraeumen.js` | Handy aufräumen: doppelte Fotos/Dateien, Serienbilder, Ereignis-Alben, Screenshots, WhatsApp-Medien, Download sortieren, Papierkorb (Android-Teil: `native/AufraeumenPlugin.java`) |
+| `13-erinnerungen.js` | Benachrichtigungen planen, Signaltöne, Status-Anzeige |
+| `14-oberflaeche.js` | Rendern, Fenster (Sheets) mit Schließen/Wischen, 5-Minuten-Fokus |
+| `15-scanner-daten.js` | Foto-Scanner, Texterkennung (Tesseract), Spar-Topf, Sicherung |
+| `16-start.js` | Klicks und Eingaben, Android-Zurück-Taste, Statusleiste, Start |
 
-Alle Module teilen sich einen globalen Zustand `S` (wird in `localStorage` unter `kleinkram-v1` gespeichert) und den Oberflächen-Zustand `UI`. Neue Funktionen bekommen ein eigenes Modul vor `12-erinnerungen.js` und werden in `index.html` und `sw.js` eingetragen.
+Alle Module teilen sich einen globalen Zustand `S` (wird in `localStorage` unter `kleinkram-v1` gespeichert) und den Oberflächen-Zustand `UI`. Neue Funktionen bekommen ein eigenes Modul vor `13-erinnerungen.js` und werden in `index.html` und `sw.js` eingetragen.
 
 ## Regeln
 - Alle Daten bleiben auf dem Gerät, keine fremden Server.

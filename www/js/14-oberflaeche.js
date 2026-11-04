@@ -2,7 +2,7 @@
 "use strict";
 /* ---------- Rendern ---------- */
 function render(){S.contracts=S.contracts||[];syncRecurring();syncContracts();syncHaus();syncWarranties();const v=$('#view');
- v.innerHTML=({heute:vHeute,kalender:vKalender,aufgaben:vAufgaben,ablage:vAblage,ich:vIch}[UI.tab]||vHeute)();
+ v.innerHTML=({heute:vHeute,kalender:vKalender,aufgaben:vAufgaben,ablage:vAblage,ich:vIch,aufraeumen:vAufraeumen}[UI.tab]||vHeute)();
  $('#nav').innerHTML=NAV.map(([k,l,p])=>`<button class="${UI.tab===k?'on':''}" data-act="go" data-to="${k}" aria-current="${UI.tab===k?'page':'false'}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${p}</svg>${l}</button>`).join('');
  v.querySelectorAll('img[data-img]').forEach(im=>IDB.get(im.dataset.img).then(src=>{if(src)im.src=src}));
  if(CAP&&UI.tab==='ich')setTimeout(notifStatus,50);const si=$('#scanInput');if(si)si.onchange=e=>{const f=e.target.files[0];e.target.value='';if(f)scanFile(f)};}
@@ -130,7 +130,7 @@ function rtSheet(id){const r=S.routines.find(x=>x.id===id)||{id:uid(),title:'',p
  const x=s.querySelector('#rX');x&&(x.onclick=()=>confirmSheet('Routine löschen?','Die Serie geht verloren.','Löschen',()=>{S.routines=S.routines.filter(z=>z.id!==id);save();render()},true))})}
 
 /* Wiederkehrend */
-const RECTPL=[['HU/TÜV','privat',24,30,{eur:15,note:'Verwarnung bei über 2 Monaten'}],['Kfz-Versicherung vergleichen (Stichtag 30.11.)','privat',12,21,null,'11-30'],['Rauchmelder testen','verwaltung',12,14],['Heizungswartung','verwaltung',12,30],['Nebenkostenabrechnung an Mieter','verwaltung',12,60,null,'12-31'],['Zahnarzt-Kontrolle','privat',6,21,null],['Verträge & Abos prüfen','verwaltung',12,14],['Erste-Hilfe-Kasten Auto prüfen','privat',12,14]];
+const RECTPL=[['Handy aufräumen','privat',1,3],['HU/TÜV','privat',24,30,{eur:15,note:'Verwarnung bei über 2 Monaten'}],['Kfz-Versicherung vergleichen (Stichtag 30.11.)','privat',12,21,null,'11-30'],['Rauchmelder testen','verwaltung',12,14],['Heizungswartung','verwaltung',12,30],['Nebenkostenabrechnung an Mieter','verwaltung',12,60,null,'12-31'],['Zahnarzt-Kontrolle','privat',6,21,null],['Verträge & Abos prüfen','verwaltung',12,14],['Erste-Hilfe-Kasten Auto prüfen','privat',12,14]];
 function recTplSheet(){sheet(`<h2>Vorlagen</h2><div class="opt">${RECTPL.map((r,i)=>`<button data-i="${i}">${esc(r[0])}<small>${everyLabel(r[2])}</small></button>`).join('')}</div>`,s=>s.querySelectorAll('[data-i]').forEach(b=>b.onclick=()=>{const r=RECTPL[b.dataset.i];const y=new Date().getFullYear();let next=r[5]?`${y}-${r[5]}`:addMonths(today(),r[2]);if(next<today())next=addMonths(next,12);closeSheet();recSheet(null,{title:r[0],cat:r[1],every:r[2],lead:r[3],cost:r[4],next})}))}
 function recSheet(id,pre){const r=S.recurring.find(x=>x.id===id)||Object.assign({id:uid(),title:'',cat:'verwaltung',every:12,next:addMonths(today(),12),lead:14,cost:null,lastGen:null},pre||{});
  sheet(`<h2>${id?'Wiederkehrend':'Neu: wiederkehrend'}</h2><label class="f">Was?<input class="inp" id="wT" value="${esc(r.title)}" placeholder="z. B. Strom ablesen" ${id?'':'autofocus'}></label>

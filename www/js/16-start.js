@@ -50,6 +50,12 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-act]');if
  case'reading':readingSheet(id,el.dataset.m);break;
  case'warranty':warrantySheet(id);break;
  case'review':reviewSheet();break;
+ case'clMediaPerm':AR().requestMedia().then(s=>{CL.st=Object.assign({},CL.st,s);render();if(s.media!=='granted')toast('Ohne Zugriff kann Kleinkram keine Fotos prüfen.')}).catch(e=>toast('Ging nicht: '+(e&&e.message||e)));break;
+ case'clFilesPerm':AR().openFilesAccess().catch(e=>toast(e&&e.message||'Ging nicht'));break;
+ case'clScanMedia':clRun('Prüfe Fotos & Videos …',clScanMedia);break;
+ case'clScanFiles':clRun('Prüfe Dateien …',clScanFiles);break;
+ case'clOpen':clOpen(el.dataset.k);break;
+ case'clUndoMove':confirmSheet('Sortieren rückgängig?','Die zuletzt einsortierten Dateien kommen zurück in Download.','Rückgängig',()=>clUndoMove());break;
  case'notifPerm':if(CAP){toast('Frage Erlaubnis an …');CapP('LocalNotifications').requestPermissions().then(r=>{toast(r.display==='granted'?'Benachrichtigungen erlaubt':'Nicht erlaubt. In den Handy-Einstellungen änderbar.');scheduleAll();setTimeout(notifStatus,800)}).catch(e=>toast('Fehler: '+(e&&e.message||e)));break}toast('Geht nur in der App.');break;
  case'sndPreview':previewSound();break;
  case'notifNow':{toast('Einen Moment …');const LN=CapP('LocalNotifications');LN.requestPermissions().then(r=>{if(r.display!=='granted'){toast('Benachrichtigungen sind nicht erlaubt.');return}return ensureChannel().then(ch=>LN.schedule({notifications:[notif({id:hid('kk-now'),title:'Kleinkram',body:`So klingt „${SOUNDS[sndKey()].n.split(' ·')[0]}“.`,schedule:{at:new Date(Date.now()+3000),allowWhileIdle:true}},ch)]})).then(()=>toast('Kommt in 3 Sekunden'))}).catch(e=>toast('Fehler: '+(e&&e.message||e)));break}
@@ -67,10 +73,10 @@ document.addEventListener('change',e=>{const t=e.target;
 document.addEventListener('input',e=>{if(e.target.id==='docQ'){const q=e.target.value.toLowerCase().trim();document.querySelectorAll('[data-s]').forEach(li=>li.hidden=!!q&&!li.dataset.s.includes(q))}});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&$('#sheetHost').innerHTML)closeSheet()});
 window.addEventListener('hashchange',()=>{const h=location.hash.slice(1);if(NAV.some(n=>n[0]===h)&&h!==UI.tab){UI.tab=h;render()}});
-document.addEventListener('visibilitychange',()=>{if(!document.hidden&&!$('#focusHost').innerHTML){render();if(CAP)scheduleAll()}});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&!$('#focusHost').innerHTML){if(UI.tab==='aufraeumen')CL.stAt=0;render();if(CAP)scheduleAll()}});
 
 /* ---------- Android: Zurück-Taste, Statusleiste ---------- */
-function onBack(){if($('#sheetHost').innerHTML){closeSheet();return true}const fx=document.querySelector('[data-f="close"]');if(fx){fx.click();return true}if(UI.tab!=='heute'){go('heute');return true}return false}
+function onBack(){if($('#sheetHost').innerHTML){closeSheet();return true}const fx=document.querySelector('[data-f="close"]');if(fx){fx.click();return true}if(UI.tab==='aufraeumen'){go('ich');return true}if(UI.tab!=='heute'){go('heute');return true}return false}
 if(CAP){try{CapP('App').addListener('backButton',()=>{if(!onBack()){try{CapP('App').minimizeApp()}catch(e){}}})}catch(e){}
  const sb=()=>{const dark=window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches;try{const SB=CapP('StatusBar');SB.setStyle({style:dark?'DARK':'LIGHT'}).catch(()=>{});SB.setBackgroundColor({color:dark?'#121815':'#ECEFE9'}).catch(()=>{})}catch(e){}};
  sb();try{matchMedia('(prefers-color-scheme: dark)').addEventListener('change',sb)}catch(e){}}
