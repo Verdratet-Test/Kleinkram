@@ -300,3 +300,9 @@ html.kk-locked body>*:not(#lockScr){visibility:hidden}
 .cl-grid.alb .cl-cell.on img{opacity:1}
 .cl-grid.alb .cl-cell:not(.on) img{opacity:.4}
 .cl-grid.alb button.cl-cell img{opacity:1}
+
+/* Personen & Tiere */
+.le-ava{width:44px;height:44px;border-radius:50%;object-fit:cover;flex:none;background:var(--paper-2)}
+.le-ph{display:grid;place-items:center;font-weight:700;color:var(--muted)}
+.le-faces{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.le-faces img,.le-faces .le-ph{width:52px;height:52px;border-radius:50%;object-fit:cover;background:var(--paper-2)}

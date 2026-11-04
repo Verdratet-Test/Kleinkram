@@ -65,10 +65,10 @@ async function orLoad(){if(OR.info)return OR.info;const v=await IDB.get(OR_KEY);
 const orPool=()=>(CL.media||[]).filter(m=>m.kind==='image'&&isCam(m));
 async function orAnalyse(){const info=await orLoad();let st={};try{st=await AR().status()}catch(e){}
  if(st.loc&&st.loc!=='granted'){try{st=await AR().requestLocation()}catch(e){}}
- const need=orPool().filter(m=>!info[m.id]||info[m.id].v!==2||(info[m.id].noGeo&&st.loc==='granted'));let h=null,done=0;
+ const need=orPool().filter(m=>!info[m.id]||info[m.id].v!==3||(info[m.id].noGeo&&st.loc==='granted'));let h=null,done=0;
  try{h=await AR().addListener('ordnenFortschritt',p=>clBusy(`Schaue Fotos an … ${done+p.i} von ${need.length}`))}catch(e){}
- try{for(let i=0;i<need.length;i+=250){const part=need.slice(i,i+250);const r=await AR().ordnenAnalyse({items:part.map(m=>({id:m.id,kind:'image'})),labels:true,geo:true});
-   (r.items||[]).forEach(x=>{info[x.id]={v:2,g:x.g||null,l:x.l||[],n:x.n||null,h:x.h||null,noGeo:!r.geo}});done+=part.length;await IDB.put(OR_KEY,info);if(r.stopped)break}}
+ try{for(let i=0;i<need.length;i+=250){const part=need.slice(i,i+250);const r=await AR().ordnenAnalyse({items:part.map(m=>({id:m.id,kind:'image'})),labels:true,geo:true,faces:true});
+   (r.items||[]).forEach(x=>{info[x.id]={v:3,g:x.g||null,l:x.l||[],n:x.n||null,h:x.h||null,f:x.f||null,noGeo:!r.geo}});done+=part.length;await IDB.put(OR_KEY,info);if(r.stopped)break}}
  finally{try{h&&h.remove()}catch(e){}}
  OR.geo=st.loc==='granted';S.clean=S.clean||{};S.clean.ordnen=today();save()}
 
@@ -94,7 +94,8 @@ function orSection(){const st=CL.st||{};if(!CL.media||st.media!=='granted')retur
  return reg('Ordnung: Fotos in Alben',null,`<p class="small muted">Kleinkram schaut sich deine Kamera-Fotos an – was drauf ist und wo sie entstanden sind – und schlägt Alben vor: Urlaube, Katzen, Essen, Dokumente … Alles im Handy, ohne Internet. Verschoben wird erst, wenn du es bestätigst.</p>
  <div class="row"><button class="btn sm ${a?'':'pri'}" data-act="orRun" ${CL.busy?'disabled':''}>${a?'Neue Fotos anschauen':'Fotos anschauen'}</button>${a?`<span class="small muted">zuletzt ${fmtD(a)}</span>`:''}</div>
  ${a?`<div class="li"><div class="grow"><p><b>Urlaube &amp; Ausflüge</b></p><p class="small muted">Nach Aufnahmeort und Datum, mit Land</p></div><button class="btn sm" data-act="orTrips" ${CL.busy?'disabled':''}>Ansehen</button></div>
- <div class="li"><div class="grow"><p><b>Themen</b></p><p class="small muted">Katzen, Hunde, Essen, Natur, Dokumente …</p></div><button class="btn sm" data-act="orThemes" ${CL.busy?'disabled':''}>Ansehen</button></div>`:''}`)}
+ <div class="li"><div class="grow"><p><b>Themen</b></p><p class="small muted">Katzen, Hunde, Essen, Natur, Dokumente …</p></div><button class="btn sm" data-act="orThemes" ${CL.busy?'disabled':''}>Ansehen</button></div>
+ <div class="li"><div class="grow"><p><b>Personen &amp; Tiere</b></p><p class="small muted">Gesichter und Haustiere benennen – Kleinkram erkennt sie wieder${(S.leute||[]).length?` · ${(S.leute||[]).map(p=>esc(p.name)).slice(0,4).join(', ')}`:''}</p></div><button class="btn sm" data-act="leute" ${CL.busy?'disabled':''}>Ansehen</button></div>`:''}`)}
 async function orRun(){await clRun('Schaue Fotos an …',orAnalyse);toast('Fertig angeschaut')}
 
 /* Gemeinsames Verschieben in Alben */
@@ -139,8 +140,10 @@ async function orThemeSheet(k,list){const T=OR_THEMEN.find(x=>x[0]===k);list=lis
 function orFeat(a){if(!a)return null;const h=a.h?a.h.map(v=>Math.sqrt(v/1000)):null;const l={};(a.l||[]).forEach(([x,c])=>l[x]=c/100);(a.n||[]).forEach(([x,c])=>l['n:'+x]=c/100);return{h,l}}
 function orDist(p,q){let d=0;if(p.h&&q.h){for(let i=0;i<64;i++)d+=(p.h[i]-q.h[i])**2;d=Math.sqrt(d)}else d=.8;
  const ks=new Set([...Object.keys(p.l),...Object.keys(q.l)]);let e=0;ks.forEach(k=>e+=((p.l[k]||0)-(q.l[k]||0))**2);return d+.35*Math.sqrt(e)}
-async function orPetSheet(k,list){const info=await orLoad();const T=OR_TIERNAME[k];let names=(S.set['pets_'+k]||'').split(',').map(x=>x.trim()).filter(Boolean);
- const ex={};let cur=0,guess=null;const col=['#2ea05a','#d08a1e','#3b6fd8','#c0398f','#6b4fd8'];
+async function orPetSheet(k,list){const info=await orLoad();const T=OR_TIERNAME[k];const ART={katzen:'katze',hunde:'hund',tiere:'tier'}[k];const known=(S.leute||[]).filter(p=>p.art===ART).map(p=>p.name);let names=known.length?known:(S.set['pets_'+k]||'').split(',').map(x=>x.trim()).filter(Boolean);
+ const ex={};let cur=0,guess=null;
+ /* Schon bekannte Tiere: sofort zuordnen, du prüfst nur noch */
+ if(known.length&&typeof leBsp==='function'){const B=await leBsp();const P=(S.leute||[]).filter(p=>p.art===ART);if(P.some(p=>(B[p.id]||{}).pets&&B[p.id].pets.length)){guess={};list.forEach(m=>{const F=orFeat(info[m.id]);if(!F)return;let bi=-1,bd=1e9;P.forEach(p=>{const e=(B[p.id]||{}).pets||[];if(!e.length)return;const d=e.map(x=>orDist(F,x)).sort((a,b)=>a-b).slice(0,3);const v=d.reduce((a,b)=>a+b,0)/d.length;if(v<bd){bd=v;bi=names.indexOf(p.name)}});if(bi>=0)guess[mkey(m)]=bi})}}const col=['#2ea05a','#d08a1e','#3b6fd8','#c0398f','#6b4fd8'];
  const draw=s=>{s.querySelector('#orNames').innerHTML=names.map((n,i)=>`<button class="fchip${i===cur?' on':''}" style="--c:${col[i%5]}" data-pn="${i}">${esc(n)} · ${Object.values(guess||ex).filter(v=>v===i).length}</button>`).join('');
   s.querySelectorAll('.cl-cell').forEach(c=>{const v=(guess||ex)[c.dataset.ck];c.style.outline=v!=null?`4px solid ${col[v%5]}`:'';c.style.outlineOffset='-4px';const t=c.querySelector('.tag');if(t)t.remove();if(v!=null)c.insertAdjacentHTML('beforeend',`<span class="tag" style="background:${col[v%5]}">${esc(names[v])}${ex[c.dataset.ck]!=null&&guess?' ✓':''}</span>`)});
   const go=s.querySelector('#orGo'),nEx=names.map((_,i)=>Object.values(ex).filter(v=>v===i).length);
@@ -164,6 +167,7 @@ async function orPetSheet(k,list){const info=await orLoad();const T=OR_TIERNAME[
     const F={};list.forEach(m=>F[mkey(m)]=orFeat(info[m.id]));const exs=Object.entries(ex).filter(([key])=>F[key]);guess={...ex};
     list.forEach(m=>{const key=mkey(m);if(guess[key]!=null||!F[key])return;const ds=exs.map(([ek,v])=>({v,d:orDist(F[key],F[ek])})).sort((a,b)=>a.d-b.d).slice(0,3);const votes={};ds.forEach(x=>votes[x.v]=(votes[x.v]||0)+1/(x.d+.05));guess[key]=+Object.entries(votes).sort((a,b)=>b[1]-a[1])[0][0]});
     s.querySelector('#orRe').hidden=false;draw(s);toast('Zugeordnet – bitte kurz prüfen');return}
-   const base=orClean(val('orPB'))||T;S.set['alb_'+k]=base;save();const byK={};list.forEach(m=>byK[mkey(m)]=m);
+   const base=orClean(val('orPB'))||T;S.set['alb_'+k]=base;save();if(typeof lePetLearn==='function')lePetLearn(k,names,guess,info);const byK={};list.forEach(m=>byK[mkey(m)]=m);
    orMove(Object.entries(guess).map(([key,v])=>({id:byK[key].id,kind:'image',path:`Pictures/${base}/${orClean(names[v])}`})),`nach Namen einsortiert`)};
+  if(guess){s.querySelector('#orRe').hidden=false}
   draw(s)})}
