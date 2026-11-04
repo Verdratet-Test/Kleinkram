@@ -273,3 +273,16 @@ span.cl-cell .ck{display:none}
 .vw-sharp{display:flex;align-items:center;gap:8px;font-size:.82rem}
 .vw-meter{flex:1;height:6px;border-radius:6px;background:rgba(255,255,255,.15);overflow:hidden}
 .vw-meter i{display:block;height:100%;background:#8e9cff}
+/* Plan scannen */
+.pl-photo{flex:none;max-height:56vh;overflow:auto;border-radius:10px;border:1px solid var(--line);background:var(--paper-2);margin:8px 0}
+.pl-in{position:relative}
+.pl-photo img{display:block;width:100%;height:auto}
+.pl-photo svg{position:absolute;inset:0;width:100%;height:100%}
+.pl-photo polygon{fill:transparent;stroke:rgba(120,120,120,.35);stroke-width:2;cursor:pointer}
+.pl-photo polygon.on{fill:rgba(46,160,90,.28);stroke:#2ea05a;stroke-width:4}
+.pl-photo polygon.guess.on{stroke:#d08a1e;stroke-dasharray:10 6}
+.pl-row{display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--line)}
+.pl-row:not(.on){opacity:.6}
+.pl-tg{flex:none;width:30px;height:30px;border-radius:50%;border:2px solid var(--line);background:transparent;color:#fff;font-weight:700;font-size:16px;margin-top:2px}
+.pl-row.on .pl-tg{background:#2ea05a;border-color:#2ea05a}
+.pl-src{margin:4px 0 0;font-family:ui-monospace,monospace;font-size:11px;word-break:break-word}

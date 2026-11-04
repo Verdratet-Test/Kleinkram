@@ -59,7 +59,7 @@ function vKalender(){const[y,m]=UI.month.split('-').map(Number);const first=new 
  list+=rec.map(r=>`<div class="li"><span class="time">wdh.</span><span class="dot" style="${cv(r.cat)}"></span><div class="grow"><p>${esc(recTitle(r))}</p></div></div>`).join('');
  return head('Kalender',`${MON[m-1]} ${y}`)+`<div class="card"><div class="cal-head"><button class="iconbtn" data-act="mon" data-n="-1" aria-label="Vorheriger Monat">${ICON.left}</button><h2>${MON[m-1]} ${y}</h2><button class="iconbtn" data-act="mon" data-n="1" aria-label="Nächster Monat">${ICON.right}</button></div>
  <div class="cal">${['Mo','Di','Mi','Do','Fr','Sa','So'].map(w=>`<div class="wd">${w}</div>`).join('')}${cells}</div></div>
- <button class="btn block" data-act="ics" style="margin-top:12px">In Handy-Kalender übertragen</button>
+ <div class="grid2" style="margin-top:12px"><button class="btn" data-act="planScan">${ICON.cam} Plan scannen</button><button class="btn" data-act="ics">In Handy-Kalender</button></div>
  <div class="filters">${Object.keys(CATS).map(c=>`<button class="fchip${UI.filter.has(c)?' on':''}" style="${cv(c)}" data-act="filt" data-c="${c}">${CATS[c]}</button>`).join('')}</div>
  ${reg(fmtD(sel,true).replace(/^./,c=>c.toUpperCase()),ev.length+tk.length,(list||`<div class="empty">Frei. <button class="btn sm" data-act="newEvent" data-d="${sel}">Termin eintragen</button></div>`)+(list?`<div class="li"><button class="btn sm" data-act="newEvent" data-d="${sel}">Termin an diesem Tag</button></div>`:''),true)}`}
 

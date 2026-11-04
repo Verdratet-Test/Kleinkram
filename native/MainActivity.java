@@ -9,6 +9,7 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(KleinkramNativePlugin.class);
         registerPlugin(AufraeumenPlugin.class);
+        registerPlugin(TexterkennungPlugin.class);
         super.onCreate(savedInstanceState);
     }
 }

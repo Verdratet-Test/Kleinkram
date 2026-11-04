@@ -49,6 +49,7 @@ jobs:
           rm -rf android/app/src/main/res/mipmap-anydpi-v26
           cp -r resources/android/* android/app/src/main/res/
           python3 native/manifest.py android/app/src/main/AndroidManifest.xml
+          python3 native/gradle.py android/app/build.gradle
           sed -i -E "s/versionCode [0-9]+/versionCode ${{ github.run_number }}/; s/versionName \"[^\"]+\"/versionName \"1.${{ github.run_number }}\"/" android/app/build.gradle
 
       - name: APK bauen

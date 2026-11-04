@@ -38,6 +38,7 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-act]');if
  case'backup':backupSheet();break;
  case'restore':restoreSheet();break;
  case'ics':exportSheet();break;
+ case'planScan':planInfoSheet();break;
  case'rlink':UI.abl='belege';if(el.dataset.l==='unpaid')UI.docFilter='offen';go('ablage');break;
  case'taxpack':taxPackSheet(+el.dataset.y);break;
  case'abl':UI.abl=el.dataset.k;render();break;

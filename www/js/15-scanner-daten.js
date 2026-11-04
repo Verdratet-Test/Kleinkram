@@ -12,16 +12,23 @@ function prepCanvas(im){const c=canvasOf(im,2200),x=c.getContext('2d'),d=x.getIm
  for(let i=0,j=0;i<a.length;i+=4,j++){const v=(a[i]*.3+a[i+1]*.59+a[i+2]*.11)|0;g[j]=v;if(v<lo)lo=v;if(v>hi)hi=v}const k=255/Math.max(1,hi-lo);
  for(let i=0,j=0;i<a.length;i+=4,j++){const v=Math.max(0,Math.min(255,(g[j]-lo)*k));a[i]=a[i+1]=a[i+2]=v}x.putImageData(d,0,0);return c}
 const OCRMSG={'loading tesseract core':'Lade Texterkennung …','initializing tesseract':'Starte Texterkennung …','loading language traineddata':'Lade deutsches Wörterbuch …','initializing api':'Starte Texterkennung …','recognizing text':'Lese den Text …'};
-async function ocr(im,onProg){if(!window.Tesseract)await loadScript('https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js');
- const logger=m=>onProg&&onProg(OCRMSG[m.status]||'Arbeite …',m.progress||0);
+let TESSPROG=null;
+async function tessWorker(onProg){TESSPROG=onProg||null;if(!window.Tesseract)await loadScript('https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js');
+ const logger=m=>TESSPROG&&TESSPROG(OCRMSG[m.status]||'Arbeite …',m.progress||0);
  if(!TESS){try{TESS=await Tesseract.createWorker('deu',1,{logger,langPath:'https://cdn.jsdelivr.net/npm/@tesseract.js-data/deu/4.0.0_best_int'})}catch(e){TESS=await Tesseract.createWorker('deu',1,{logger})}}
+ return TESS}
+/* Auf dem Handy: Texterkennung von Google (ML Kit) im Gerät, ohne Internet */
+async function nativeOCR(cv){const r=await CapP('Texterkennung').erkennen({image:cv.toDataURL('image/jpeg',.92).split(',')[1]});return r}
+async function ocr(im,onProg){
+ if(CAP){try{onProg&&onProg('Lese den Text …',.5);const r=await nativeOCR(canvasOf(im,2600));const L=r.lines||[];const by={};L.forEach(l=>(by[l.block]=by[l.block]||[]).push(l.text));const tx=Object.keys(by).map(k=>by[k].join('\n')).join('\n');if(tx.trim())return tx}catch(e){}}
+ await tessWorker(onProg);
  const r=await TESS.recognize(prepCanvas(im));if(!S.ocrReady){S.ocrReady=true;save()}return r.data.text||''}
 async function scanFile(file){toast('Lese die Rechnung …');let im;try{im=await loadImg(file)}catch(e){toast('Das Bild ließ sich nicht öffnen.');return}
  const img=canvasOf(im,1400).toDataURL('image/jpeg',.72);let data={},how='';
  const q=await readQR(im);if(q){const p=parseEPC(q)||parseBezahlCode(q);if(p){data=p;how='qr'}}
  if(!how){const tx=await readText(im);if(tx){data=parseInvoiceText(tx);how='text'}}
- if(!how&&(navigator.onLine!==false||S.ocrReady)){let stop=false;
-  sheet(`<h2>Lese die Rechnung …</h2><p class="muted" id="oM">Starte Texterkennung …</p><span class="bar" style="width:100%"><i id="oB" style="width:3%"></i></span><p class="small muted">${S.ocrReady?'Dauert ein paar Sekunden.':'Beim ersten Mal wird die Texterkennung einmalig geladen (etwa 5 MB). Danach geht es auch offline. Das Foto bleibt auf deinem Handy.'}</p><button class="btn ghost" id="oX">Überspringen und selbst eintippen</button>`,s=>s.querySelector('#oX').onclick=()=>{stop=true;closeSheet();invoiceSheet(data,img,'')});
+ if(!how&&(CAP||navigator.onLine!==false||S.ocrReady)){let stop=false;
+  sheet(`<h2>Lese die Rechnung …</h2><p class="muted" id="oM">Starte Texterkennung …</p><span class="bar" style="width:100%"><i id="oB" style="width:3%"></i></span><p class="small muted">${CAP||S.ocrReady?'Dauert ein paar Sekunden.':'Beim ersten Mal wird die Texterkennung einmalig geladen (etwa 5 MB). Danach geht es auch offline. Das Foto bleibt auf deinem Handy.'}</p><button class="btn ghost" id="oX">Überspringen und selbst eintippen</button>`,s=>s.querySelector('#oX').onclick=()=>{stop=true;closeSheet();invoiceSheet(data,img,'')});
   try{const tx=await ocr(im,(msg,pr)=>{const m=$('#oM'),b=$('#oB');if(m)m.textContent=msg;if(b)b.style.width=Math.max(3,Math.round(pr*100))+'%'});if(stop)return;
    const d2=parseInvoiceText(tx);if(d2.iban||d2.amount||d2.payee){data=d2;how='ocr'}else how='ocrfail'}catch(e){if(stop)return;how='ocrerr'}
   closeSheet()}

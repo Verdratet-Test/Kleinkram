@@ -7,10 +7,10 @@ Kleinkram ist eine Web-App (HTML, CSS, JavaScript ohne Framework), die mit **Cap
 |---|---|
 | `www/index.html` | Grundgerüst: Kopf, Navigation, Platzhalter, lädt CSS und Module |
 | `www/css/app.css` | Gestaltung. Alle Farben als Tokens in `:root`, Dunkelmodus über `prefers-color-scheme` |
-| `www/js/*.js` | Die App in 16 Modulen (siehe unten), werden in Nummern-Reihenfolge geladen |
+| `www/js/*.js` | Die App in 17 Modulen (siehe unten), werden in Nummern-Reihenfolge geladen |
 | `www/sounds/` | Signaltöne zum Vorhören in der App |
 | `www/lib/` | Fremdbibliotheken, werden beim Bau aus npm kopiert (nicht im Repo) |
-| `native/` | Android-Teil: `KleinkramNativePlugin` (Kalender-Eintrag, Links öffnen), `AufraeumenPlugin` (Fotos/Dateien), `MainActivity`, `theme.py` (Statusleiste), `manifest.py` (Berechtigungen) |
+| `native/` | Android-Teil: `KleinkramNativePlugin` (Kalender-Eintrag, Links öffnen), `AufraeumenPlugin` (Fotos/Dateien), `TexterkennungPlugin` (Google ML Kit, offline), `MainActivity`, `theme.py` (Statusleiste), `manifest.py` (Berechtigungen), `gradle.py` (zusätzliche Bibliotheken, z. B. ML Kit) |
 | `resources/android/` | App-Icons und Signaltöne (`raw/`) für Android |
 | `.github/workflows/app-bauen.yml` | Baut bei jedem Push APK + Web-App |
 
@@ -33,6 +33,7 @@ Kleinkram ist eine Web-App (HTML, CSS, JavaScript ohne Framework), die mit **Cap
 | `14-oberflaeche.js` | Rendern, Fenster (Sheets) mit Schließen/Wischen, 5-Minuten-Fokus |
 | `15-scanner-daten.js` | Foto-Scanner, Texterkennung (Tesseract), Spar-Topf, Sicherung |
 | `16-start.js` | Klicks und Eingaben, Android-Zurück-Taste, Statusleiste, Start |
+| `17-plan-scannen.js` | Plan scannen: Dienst-/Bereitschaftsplan fotografieren, Zeilen bilden, Datum/KW lesen (Lücken im Wochenplan füllen), eigene Zeilen über Name oder Markierung (Kuli, Textmarker) finden, Prüfansicht, als Termine/Aufgaben eintragen |
 
 Alle Module teilen sich einen globalen Zustand `S` (wird in `localStorage` unter `kleinkram-v1` gespeichert) und den Oberflächen-Zustand `UI`. Neue Funktionen bekommen ein eigenes Modul vor `13-erinnerungen.js` und werden in `index.html` und `sw.js` eingetragen.
 
