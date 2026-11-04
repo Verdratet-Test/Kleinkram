@@ -45,7 +45,7 @@ const NAV=[['heute','Heute','<path d="M12 3v2M12 19v2M4.2 4.2l1.4 1.4M18.4 18.4l
 const KEY='kleinkram-v1';
 function seed(){const t=today(),y=+t.slice(0,4);const r=(title,cat,every,next,lead,cost)=>({id:uid(),title,cat,every,next,lead,cost:cost||null,lastGen:null});
  return{v:1,name:'',points:0,log:[],events:[],
-  tasks:[{id:uid(),title:'Stromrechnung bezahlen',cat:'verwaltung',due:addDays(t,3),created:addDays(t,-9),postponed:2,started:false,done:null,steps:[],cost:{eur:5,note:'Mahngebühr'},bundle:'',buddy:null,example:true}],
+  tasks:[],
   recurring:[r('Winterreifen aufziehen','privat',12,`${y+1}-10-15`,21,{eur:60,note:'Bußgeld bei Glätte ohne Winterreifen'}),
    r('Sommerreifen aufziehen','privat',12,`${y+1}-04-15`,21),
    r('Stromzähler ablesen','verwaltung',12,`${y}-12-31`,10),
@@ -58,6 +58,7 @@ try{S=JSON.parse(localStorage.getItem(KEY)||'null')}catch(e){S=null}
 if(!S||S.v!==1)S=seed();
 try{if(window.Capacitor&&Capacitor.isNativePlatform&&Capacitor.isNativePlatform()&&S.set&&S.set.lock)document.documentElement.classList.add('kk-locked')}catch(e){}
 let storageOK=true;
+if(!S.m3){S.m3=1;S.tasks=S.tasks.filter(t=>!t.example)}  /* Beispiel-Aufgabe entfernen */
 if(!S.m2){S.m2=1;S.routines.forEach(r=>{r.freq=r.freq||'daily'});
  S.routines.push({id:uid(),title:'Rechnungen prüfen und ggf. überweisen',pflicht:true,days:[],freq:'days',n:3,wd:0,time:'',link:'unpaid'},{id:uid(),title:'Dokumente einräumen',pflicht:true,days:[],freq:'weekly',n:7,wd:0,time:'',link:'docs'});
  try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
