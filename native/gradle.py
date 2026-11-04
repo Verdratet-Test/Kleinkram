@@ -17,5 +17,10 @@ if not m:
     sys.exit("dependencies-Block nicht gefunden")
 add = "".join(f"\n    {d}" for d in DEPS if d not in src)
 src = src[: m.end()] + add + src[m.end():]
+# Nur Handy-Prozessoren (ARM) einpacken – spart ~20 MB (x86 gibt es nur im Emulator)
+if "abiFilters" not in src:
+    d = re.search(r"defaultConfig\s*\{", src)
+    if d:
+        src = src[: d.end()] + "\n        ndk { abiFilters 'arm64-v8a', 'armeabi-v7a' }" + src[d.end():]
 open(path, "w", encoding="utf-8").write(src)
 print("build.gradle ergänzt:", add.strip() or "(schon vorhanden)")
