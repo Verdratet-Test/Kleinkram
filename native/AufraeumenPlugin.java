@@ -45,6 +45,10 @@ import com.google.mlkit.vision.label.ImageLabeler;
 import com.google.mlkit.vision.label.ImageLabeling;
 import com.google.mlkit.vision.label.defaults.ImageLabelerOptions;
 import com.google.mlkit.common.model.LocalModel;
+import com.google.mlkit.vision.face.Face;
+import com.google.mlkit.vision.face.FaceDetection;
+import com.google.mlkit.vision.face.FaceDetector;
+import com.google.mlkit.vision.face.FaceDetectorOptions;
 import com.google.mlkit.vision.label.custom.CustomImageLabelerOptions;
 import com.google.mlkit.vision.text.Text;
 import com.google.mlkit.vision.text.TextRecognition;
@@ -426,18 +430,30 @@ public class AufraeumenPlugin extends Plugin {
         final org.json.JSONArray items = call.getData().optJSONArray("items");
         final boolean doLabels = call.getBoolean("labels", true);
         final boolean doGeo = call.getBoolean("geo", true);
+        final boolean doFaces = call.getBoolean("faces", true);
         if (items == null) { call.reject("Keine Fotos"); return; }
         belegStop = false;
         new Thread(() -> {
             ImageLabeler lab = null, net = null;
+            FaceDetector fd = null;
+            org.tensorflow.lite.Interpreter fn = null;
             try {
                 if (doLabels) lab = ImageLabeling.getClient(new ImageLabelerOptions.Builder().setConfidenceThreshold(0.5f).build());
                 if (doLabels) {
                     try {
                         getContext().getAssets().open("imagenet.tflite").close();
                         LocalModel lm = new LocalModel.Builder().setAssetFilePath("imagenet.tflite").build();
-                        net = ImageLabeling.getClient(new CustomImageLabelerOptions.Builder(lm).setConfidenceThreshold(0.08f).setMaxResultCount(6).build());
+                        net = ImageLabeling.getClient(new CustomImageLabelerOptions.Builder(lm).setConfidenceThreshold(0.01f).setMaxResultCount(40).build());
                     } catch (Throwable ignored) { net = null; }
+                }
+                if (doFaces) {
+                    try {
+                        fn = new org.tensorflow.lite.Interpreter(modelFile("gesicht.tflite"), new org.tensorflow.lite.Interpreter.Options().setNumThreads(2));
+                        fd = FaceDetection.getClient(new FaceDetectorOptions.Builder()
+                                .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_FAST)
+                                .setLandmarkMode(FaceDetectorOptions.LANDMARK_MODE_ALL)
+                                .setMinFaceSize(0.07f).build());
+                    } catch (Throwable e) { fn = null; fd = null; }
                 }
                 ContentResolver cr = getContext().getContentResolver();
                 boolean geoOk = doGeo && Build.VERSION.SDK_INT >= 24 && (Build.VERSION.SDK_INT < 29 || getPermissionState("location") == PermissionState.GRANTED);
@@ -465,39 +481,76 @@ public class AufraeumenPlugin extends Plugin {
                             }
                         } catch (Throwable ignored) { }
                     }
-                    if (lab != null) {
+                    Bitmap big = null, bmp = null;
+                    try {
+                        if (fd != null) {
+                            big = decodeLarge(cr, it, 1280);
+                            if (big != null) {
+                                float sc = 384f / Math.max(big.getWidth(), big.getHeight());
+                                bmp = Bitmap.createScaledBitmap(big, Math.max(1, Math.round(big.getWidth() * sc)), Math.max(1, Math.round(big.getHeight() * sc)), true);
+                            }
+                        } else bmp = loadThumb(cr, it, 384);
+                    } catch (Throwable ignored) { }
+                    if (lab != null && bmp != null) {
                         try {
-                            Bitmap bmp = loadThumb(cr, it, 384);
-                            if (bmp != null) {
-                                List<ImageLabel> ls = Tasks.await(lab.process(InputImage.fromBitmap(bmp, 0)));
-                                JSArray la = new JSArray();
-                                boolean tier = false;
-                                for (ImageLabel l : ls) {
+                            List<ImageLabel> ls = Tasks.await(lab.process(InputImage.fromBitmap(bmp, 0)));
+                            JSArray la = new JSArray();
+                            boolean tier = false;
+                            for (ImageLabel l : ls) {
+                                JSArray x = new JSArray();
+                                x.put(l.getText());
+                                x.put(Math.round(l.getConfidence() * 100));
+                                la.put(x);
+                                if (TIERE.contains(l.getText())) tier = true;
+                            }
+                            o.put("l", la);
+                            if (net != null) {
+                                List<ImageLabel> ns = Tasks.await(net.process(InputImage.fromBitmap(bmp, 0)));
+                                JSArray na = new JSArray();
+                                int k = 0;
+                                /* bei Tieren die 40 besten Klassen (Fingerabdruck fürs Wiedererkennen), sonst die 6 besten */
+                                int max = tier ? 40 : 6;
+                                for (ImageLabel l : ns) {
+                                    if (k++ >= max) break;
+                                    if (k > 6 && l.getConfidence() < 0.01f) break;
                                     JSArray x = new JSArray();
                                     x.put(l.getText());
-                                    x.put(Math.round(l.getConfidence() * 100));
-                                    la.put(x);
-                                    if (TIERE.contains(l.getText())) tier = true;
+                                    x.put(Math.round(l.getConfidence() * 1000) / 10.0);
+                                    na.put(x);
                                 }
-                                o.put("l", la);
-                                if (net != null) {
-                                    List<ImageLabel> ns = Tasks.await(net.process(InputImage.fromBitmap(bmp, 0)));
-                                    JSArray na = new JSArray();
-                                    for (ImageLabel l : ns) {
-                                        JSArray x = new JSArray();
-                                        x.put(l.getText());
-                                        x.put(Math.round(l.getConfidence() * 100));
-                                        na.put(x);
-                                    }
-                                    o.put("n", na);
-                                }
-                                o.put("h", farbProfil(bmp));
-                                bmp.recycle();
+                                o.put("n", na);
                             }
+                            o.put("h", farbProfil(bmp));
                         } catch (Throwable ignored) { }
                     }
+                    if (fd != null && fn != null && big != null) {
+                        try {
+                            List<Face> faces = Tasks.await(fd.process(InputImage.fromBitmap(big, 0)));
+                            JSArray fa = new JSArray();
+                            int W = big.getWidth(), H = big.getHeight(), c = 0;
+                            for (Face f : faces) {
+                                android.graphics.Rect r = f.getBoundingBox();
+                                if (r.width() < 40 || c >= 8) continue;
+                                float[] e = faceEmbedding(fn, big, f);
+                                if (e == null) continue;
+                                JSObject x = new JSObject();
+                                JSArray b = new JSArray();
+                                b.put(Math.round(r.left * 1000f / W)); b.put(Math.round(r.top * 1000f / H));
+                                b.put(Math.round(r.width() * 1000f / W)); b.put(Math.round(r.height() * 1000f / H));
+                                x.put("b", b);
+                                JSArray ea = new JSArray();
+                                for (float v : e) ea.put(Math.round(v * 1000));
+                                x.put("e", ea);
+                                fa.put(x);
+                                c++;
+                            }
+                            o.put("f", fa);
+                        } catch (Throwable ignored) { }
+                    }
+                    if (bmp != null && bmp != big) bmp.recycle();
+                    if (big != null) big.recycle();
                     out.put(o);
-                    if (i % 10 == 0 || i == n - 1) {
+                    if (i % 5 == 0 || i == n - 1) {
                         JSObject p = new JSObject();
                         p.put("i", i + 1);
                         p.put("n", n);
@@ -508,6 +561,7 @@ public class AufraeumenPlugin extends Plugin {
                 r.put("items", out);
                 r.put("geo", geoOk);
                 r.put("imagenet", net != null);
+                r.put("faces", fn != null && fd != null);
                 r.put("stopped", belegStop);
                 call.resolve(r);
             } catch (Throwable e) {
@@ -515,7 +569,96 @@ public class AufraeumenPlugin extends Plugin {
             } finally {
                 try { if (lab != null) lab.close(); } catch (Throwable ignored) { }
                 try { if (net != null) net.close(); } catch (Throwable ignored) { }
+                try { if (fd != null) fd.close(); } catch (Throwable ignored) { }
+                try { if (fn != null) fn.close(); } catch (Throwable ignored) { }
             }
+        }).start();
+    }
+
+    private java.nio.MappedByteBuffer modelFile(String name) throws Exception {
+        android.content.res.AssetFileDescriptor afd = getContext().getAssets().openFd(name);
+        FileInputStream in = new FileInputStream(afd.getFileDescriptor());
+        java.nio.channels.FileChannel ch = in.getChannel();
+        return ch.map(java.nio.channels.FileChannel.MapMode.READ_ONLY, afd.getStartOffset(), afd.getDeclaredLength());
+    }
+
+    /** Gesicht gerade drehen (Augenlinie), auf Modellgröße bringen, Merkmalsvektor (L2-normiert) berechnen. */
+    private static float[] faceEmbedding(org.tensorflow.lite.Interpreter fn, Bitmap src, Face f) {
+        int[] in = fn.getInputTensor(0).shape();
+        int batch = in[0], S = in[1];
+        android.graphics.Rect r = f.getBoundingBox();
+        float cx = r.exactCenterX(), cy = r.exactCenterY(), size = Math.max(r.width(), r.height());
+        float ang = 0;
+        com.google.mlkit.vision.face.FaceLandmark le = f.getLandmark(com.google.mlkit.vision.face.FaceLandmark.LEFT_EYE);
+        com.google.mlkit.vision.face.FaceLandmark re = f.getLandmark(com.google.mlkit.vision.face.FaceLandmark.RIGHT_EYE);
+        if (le != null && re != null) {
+            float dx = re.getPosition().x - le.getPosition().x, dy = re.getPosition().y - le.getPosition().y;
+            ang = (float) Math.toDegrees(Math.atan2(dy, dx));
+            if (ang > 90) ang -= 180; else if (ang < -90) ang += 180;
+        } else ang = f.getHeadEulerAngleZ() * -1f;
+        Bitmap crop = Bitmap.createBitmap(S, S, Bitmap.Config.ARGB_8888);
+        android.graphics.Canvas cv = new android.graphics.Canvas(crop);
+        android.graphics.Matrix m = new android.graphics.Matrix();
+        m.postTranslate(-cx, -cy);
+        m.postRotate(-ang);
+        m.postScale(S / size, S / size);
+        m.postTranslate(S / 2f, S / 2f);
+        cv.drawBitmap(src, m, new android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG));
+        java.nio.ByteBuffer buf = java.nio.ByteBuffer.allocateDirect(4 * batch * S * S * 3).order(java.nio.ByteOrder.nativeOrder());
+        int[] px = new int[S * S];
+        crop.getPixels(px, 0, S, 0, 0, S, S);
+        crop.recycle();
+        for (int b = 0; b < batch; b++)
+            for (int v : px) {
+                buf.putFloat((((v >> 16) & 255) - 127.5f) / 128f);
+                buf.putFloat((((v >> 8) & 255) - 127.5f) / 128f);
+                buf.putFloat(((v & 255) - 127.5f) / 128f);
+            }
+        int[] os = fn.getOutputTensor(0).shape();
+        int dim = os[os.length - 1];
+        float[][] o = new float[os[0]][dim];
+        buf.rewind();
+        fn.run(buf, o);
+        float[] e = o[0];
+        double nn = 0;
+        for (float v : e) nn += v * v;
+        nn = Math.sqrt(nn);
+        if (nn < 1e-6) return null;
+        for (int k = 0; k < e.length; k++) e[k] /= nn;
+        return e;
+    }
+
+    /** Ausschnitte von Gesichtern (für die Personen-Übersicht). items: [{id, b:[x,y,w,h] in Promille}] */
+    @PluginMethod
+    public void gesichtBilder(final PluginCall call) {
+        final org.json.JSONArray items = call.getData().optJSONArray("items");
+        final int px = Math.max(48, Math.min(256, call.getInt("size", 112)));
+        if (items == null) { call.reject("Keine Gesichter"); return; }
+        new Thread(() -> {
+            JSObject res = new JSObject();
+            ContentResolver cr = getContext().getContentResolver();
+            for (int i = 0; i < items.length(); i++) {
+                try {
+                    JSONObject it = items.getJSONObject(i);
+                    org.json.JSONArray b = it.getJSONArray("b");
+                    Bitmap big = decodeLarge(cr, it, 1280);
+                    if (big == null) continue;
+                    int W = big.getWidth(), H = big.getHeight();
+                    float x = b.getInt(0) * W / 1000f, y = b.getInt(1) * H / 1000f, w = b.getInt(2) * W / 1000f, h = b.getInt(3) * H / 1000f;
+                    float s = Math.max(w, h) * 1.35f, cx = x + w / 2, cy = y + h / 2;
+                    int l = Math.max(0, Math.round(cx - s / 2)), t = Math.max(0, Math.round(cy - s / 2));
+                    int sw = Math.min(W - l, Math.round(s)), sh = Math.min(H - t, Math.round(s));
+                    Bitmap c = Bitmap.createScaledBitmap(Bitmap.createBitmap(big, l, t, Math.max(1, sw), Math.max(1, sh)), px, px, true);
+                    ByteArrayOutputStream bo = new ByteArrayOutputStream();
+                    c.compress(Bitmap.CompressFormat.JPEG, 80, bo);
+                    res.put(it.optString("key", String.valueOf(it.optLong("id"))), "data:image/jpeg;base64," + Base64.encodeToString(bo.toByteArray(), Base64.NO_WRAP));
+                    big.recycle();
+                    c.recycle();
+                } catch (Throwable ignored) { }
+            }
+            JSObject r = new JSObject();
+            r.put("bilder", res);
+            call.resolve(r);
         }).start();
     }
 

@@ -14,6 +14,9 @@ DEPS = [
     "implementation 'com.google.mlkit:image-labeling:17.0.9'",
     # genaueres Zusatzmodell (ImageNet, 1000 Klassen) aus assets/imagenet.tflite
     "implementation 'com.google.mlkit:image-labeling-custom:17.0.3'",
+    # Gesichter finden (ML Kit) und wiedererkennen (MobileFaceNet über TensorFlow Lite) – alles im Gerät
+    "implementation 'com.google.mlkit:face-detection:16.1.7'",
+    "implementation 'org.tensorflow:tensorflow-lite:2.16.1'",
 ]
 
 path = sys.argv[1]
@@ -32,6 +35,6 @@ if "abiFilters" not in src:
 if "noCompress" not in src:
     a = re.search(r"^android\s*\{", src, re.M)
     if a:
-        src = src[: a.end()] + "\n    androidResources { noCompress 'tflite' }" + src[a.end():]
+        src = src[: a.end()] + "\n    androidResources { noCompress 'tflite' }\n    packaging { jniLibs { pickFirsts += ['**/libtensorflowlite_jni.so'] } }" + src[a.end():]
 open(path, "w", encoding="utf-8").write(src)
 print("build.gradle ergänzt:", add.strip() or "(schon vorhanden)")

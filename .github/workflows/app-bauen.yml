@@ -60,6 +60,7 @@ jobs:
             if curl -fsSL -o android/app/src/main/assets/imagenet.tflite "$B/$m.tflite"; then echo "Modell: $m ($(stat -c%s android/app/src/main/assets/imagenet.tflite) Bytes)"; break; fi
           done
           [ -s android/app/src/main/assets/imagenet.tflite ] || { echo "::warning::Kein Zusatzmodell – nur Grundmodell"; rm -f android/app/src/main/assets/imagenet.tflite; }
+          cp native/modelle/*.tflite android/app/src/main/assets/
 
       - name: APK bauen
         working-directory: android

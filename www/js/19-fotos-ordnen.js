@@ -18,10 +18,37 @@ const OR_THEMEN=[
  ['dokumente','Dokumente & Zettel',['Receipt','Paper','Poster','Menu','Document','Text','Handwriting','Font','Newspaper','Book','Envelope','Whiteboard','Comics','Paper towel']],
 ];
 const OR_TIERNAME={katzen:'Katzen',hunde:'Hunde',tiere:'Tiere'};
+/* Genaueres Zusatzmodell (ImageNet, 1000 Klassen): Gruppen nach Klassennamen */
+const IN_SET=a=>new Set(a.map(x=>x.toLowerCase()));
+const IN={
+ katzen:IN_SET(['tabby','tabby cat','tiger cat','persian cat','siamese cat','siamese','egyptian cat']),
+ hunde:IN_SET(['chihuahua','japanese spaniel','maltese dog','pekinese','shih-tzu','blenheim spaniel','papillon','toy terrier','rhodesian ridgeback','afghan hound','basset','beagle','bloodhound','bluetick','black-and-tan coonhound','walker hound','english foxhound','redbone','borzoi','irish wolfhound','italian greyhound','whippet','ibizan hound','norwegian elkhound','otterhound','saluki','scottish deerhound','weimaraner','staffordshire bullterrier','american staffordshire terrier','bedlington terrier','border terrier','kerry blue terrier','irish terrier','norfolk terrier','norwich terrier','yorkshire terrier','wire-haired fox terrier','lakeland terrier','sealyham terrier','airedale','cairn','australian terrier','dandie dinmont','boston bull','miniature schnauzer','giant schnauzer','standard schnauzer','scotch terrier','tibetan terrier','silky terrier','soft-coated wheaten terrier','west highland white terrier','lhasa','flat-coated retriever','curly-coated retriever','golden retriever','labrador retriever','chesapeake bay retriever','german short-haired pointer','vizsla','english setter','irish setter','gordon setter','brittany spaniel','clumber','english springer','welsh springer spaniel','cocker spaniel','sussex spaniel','irish water spaniel','kuvasz','schipperke','groenendael','malinois','briard','kelpie','komondor','old english sheepdog','shetland sheepdog','collie','border collie','bouvier des flandres','rottweiler','german shepherd','doberman','miniature pinscher','greater swiss mountain dog','bernese mountain dog','appenzeller','entlebucher','boxer','bull mastiff','tibetan mastiff','french bulldog','great dane','saint bernard','eskimo dog','malamute','siberian husky','dalmatian','affenpinscher','basenji','pug','leonberg','newfoundland','great pyrenees','samoyed','pomeranian','chow','keeshond','brabancon griffon','pembroke','cardigan','toy poodle','miniature poodle','standard poodle','mexican hairless']),
+ tiere:IN_SET(['guinea pig','hamster','wood rabbit','hare','angora','goldfish','hen','cock','ostrich','goose','drake','macaw','african grey','cockatoo','lorikeet','budgerigar','tree frog','box turtle','mud turtle','terrapin','common iguana','horse cart','sorrel','ox','ram','bison','llama','zebra','hog','ice bear','brown bear','fox squirrel','red fox','tiger','lion','cheetah','leopard','snow leopard','lynx','cougar','jaguar','koala','giant panda','lesser panda','elephant','tusker','gazelle','impala','hippopotamus','chimpanzee','orangutan','gorilla','monarch','admiral','ladybug','bee','dragonfly','starfish','jellyfish','sea lion','dugong','grey whale','killer whale','flamingo','pelican','king penguin','bald eagle','kite','owl','great grey owl','peacock','hummingbird','jay','magpie','robin','goldfinch','house finch','brambling','junco','indigo bunting','chickadee','water ouzel','bulbul']),
+ essen:IN_SET(['pizza','cheeseburger','hotdog','hot dog','plate','ice cream','ice lolly','trifle','bagel','pretzel','burrito','carbonara','guacamole','consomme','hot pot','potpie','meat loaf','french loaf','mashed potato','head cabbage','broccoli','cauliflower','zucchini','spaghetti squash','acorn squash','butternut squash','cucumber','artichoke','bell pepper','cardoon','mushroom','granny smith','strawberry','orange','lemon','fig','pineapple','banana','jackfruit','custard apple','pomegranate','chocolate sauce','dough','red wine','espresso','eggnog','cup','coffee mug','beer glass','wine bottle','beer bottle','frying pan','wok','caldron','dutch oven','soup bowl','mixing bowl','bakery','confectionery','butcher shop','grocery store','restaurant','dining table','corn','ear','pot pie','waffle iron','toaster','teapot','pitcher','goblet','cocktail shaker']),
+ natur:IN_SET(['alp','cliff','coral reef','geyser','lakeside','promontory','sandbar','seashore','valley','volcano','breakwater','dam','boathouse','mountain tent','cliff dwelling']),
+ pflanzen:IN_SET(['daisy',"yellow lady's slipper",'acorn','hip','buckeye','coral fungus','agaric','gyromitra','stinkhorn','earthstar','hen-of-the-woods','bolete','rapeseed','pot','flowerpot','greenhouse','vase']),
+ fahrzeuge:IN_SET(['sports car','convertible','cab','minivan','jeep','limousine','pickup','police van','racer','beach wagon','ambulance','moving van','trailer truck','tow truck','fire engine','garbage truck','school bus','trolleybus','minibus','motor scooter','moped','mountain bike','bicycle-built-for-two','tricycle','tractor','forklift','airliner','warplane','airship','speedboat','canoe','container ship','liner','fireboat','lifeboat','yawl','catamaran','trimaran','schooner','passenger car','electric locomotive','steam locomotive','freight car','streetcar','car wheel','grille','odometer','car mirror','disk brake','go-kart','golfcart','snowmobile','half track','tank','recreational vehicle','crane','harvester','thresher','lawn mower']),
+ dokumente:IN_SET(['envelope','menu','book jacket','comic book','crossword puzzle','web site','binder','notebook','packet','rule','slide rule','carton','paper towel','toilet tissue','scoreboard','street sign','monitor','screen','television']),
+};
+const IN_STRONG={katzen:.35,hunde:.4,tiere:.45,essen:.4,natur:.4,pflanzen:.45,fahrzeuge:.4,dokumente:.4};
+const BASE_MIN={feiern:.85,menschen:.85,natur:.85,pflanzen:.88,essen:.88,dokumente:.8};
 const orLabelTheme=(()=>{const m={};OR_THEMEN.forEach(([k,,ls])=>ls.forEach(l=>m[l]=m[l]||k));return m})();
-function orThemeOf(a){if(!a||!a.l||!a.l.length)return null;/* stärkstes bekanntes Label entscheidet; Katze/Hund haben Vorrang */
- const has=t=>a.l.some(([x,c])=>x===t&&c>=60);if(has('Cat'))return'katzen';if(has('Dog'))return'hunde';
- let best=null,bc=0;a.l.forEach(([x,c])=>{const k=orLabelTheme[x];if(k&&c>bc){bc=c;best=k}});return best}
+const PERSON=['Selfie','Smile','Glasses','Beard','Hand','Skin','Eyelash','Ear','Hair','Lip','Fun','Sitting','Sleep'];
+function orThemeOf(a){if(!a||!a.l)return null;
+ const base=k=>Math.max(0,...a.l.filter(([x])=>orLabelTheme[x]===k).map(([,c])=>c/100));
+ const person=Math.max(0,...a.l.filter(([x])=>PERSON.includes(x)).map(([,c])=>c/100));
+ if(a.n){/* mit Zusatzmodell: Summe der passenden Klassen */
+  const sc={};a.n.forEach(([x,c])=>{const t=String(x).toLowerCase();for(const k in IN)if(IN[k].has(t))sc[k]=(sc[k]||0)+c/100});
+  const order=['katzen','hunde','tiere','dokumente','essen','fahrzeuge','pflanzen','natur'];
+  for(const k of order){const v=sc[k]||0;if(v>=IN_STRONG[k]&&!(person>=.75&&(k==='katzen'||k==='hunde'||k==='tiere')&&v<.7))return k}
+  /* nur Grundmodell, dafür streng */
+  for(const k of ['dokumente','essen','pflanzen','natur','feiern','menschen'])if(base(k)>=BASE_MIN[k]&&!(k==='essen'&&(sc.fahrzeuge||0)>.15))return k;
+  return null}
+ /* ohne Zusatzmodell: Tiere nur sehr sicher und nicht, wenn ein Mensch erkannt wurde */
+ const has=(t,m)=>a.l.some(([x,c])=>x===t&&c>=m*100);
+ if(person<.6&&has('Cat',.85))return'katzen';if(person<.6&&has('Dog',.85))return'hunde';
+ for(const k of ['dokumente','essen','pflanzen','natur','fahrzeuge','feiern','menschen'])if(base(k)>=(BASE_MIN[k]||.85))return k;
+ return null}
 
 /* ---------- Länder (offline, Natural Earth) ---------- */
 let LAND_OK=null;async function orLaender(){if(LAND_OK)return true;if(LAND_OK===false)return false;try{await loadScript('data/laender.js');LAND_OK=!!window.LAENDER||typeof LAENDER!=='undefined'}catch(e){LAND_OK=false}return LAND_OK}
@@ -38,10 +65,10 @@ async function orLoad(){if(OR.info)return OR.info;const v=await IDB.get(OR_KEY);
 const orPool=()=>(CL.media||[]).filter(m=>m.kind==='image'&&isCam(m));
 async function orAnalyse(){const info=await orLoad();let st={};try{st=await AR().status()}catch(e){}
  if(st.loc&&st.loc!=='granted'){try{st=await AR().requestLocation()}catch(e){}}
- const need=orPool().filter(m=>!info[m.id]||(info[m.id].noGeo&&st.loc==='granted'));let h=null,done=0;
+ const need=orPool().filter(m=>!info[m.id]||info[m.id].v!==2||(info[m.id].noGeo&&st.loc==='granted'));let h=null,done=0;
  try{h=await AR().addListener('ordnenFortschritt',p=>clBusy(`Schaue Fotos an … ${done+p.i} von ${need.length}`))}catch(e){}
  try{for(let i=0;i<need.length;i+=250){const part=need.slice(i,i+250);const r=await AR().ordnenAnalyse({items:part.map(m=>({id:m.id,kind:'image'})),labels:true,geo:true});
-   (r.items||[]).forEach(x=>{info[x.id]={g:x.g||null,l:x.l||[],h:x.h||null,noGeo:!r.geo}});done+=part.length;await IDB.put(OR_KEY,info);if(r.stopped)break}}
+   (r.items||[]).forEach(x=>{info[x.id]={v:2,g:x.g||null,l:x.l||[],n:x.n||null,h:x.h||null,noGeo:!r.geo}});done+=part.length;await IDB.put(OR_KEY,info);if(r.stopped)break}}
  finally{try{h&&h.remove()}catch(e){}}
  OR.geo=st.loc==='granted';S.clean=S.clean||{};S.clean.ordnen=today();save()}
 
@@ -89,7 +116,7 @@ async function orTripsSheet(){let trips;await clRun('Suche Urlaube …',async()=
    if(!items.length){toast('Setz bei mindestens einer Reise den Haken.');return}orMove(items,`in ${n} Album${n>1?'en':''} verschoben`)}})}
 
 /* Themen */
-async function orThemesSheet(){const info=await orLoad();const pool=orPool(),by={};pool.forEach(m=>{const k=orThemeOf(info[m.id]);if(k)(by[k]=by[k]||[]).push(m)});
+async function orThemesSheet(){const info=await orLoad();const pool=orPool(),by={};const no=S.orNo||{};pool.forEach(m=>{const k=orThemeOf(info[m.id]);if(k&&!(no[k]||[]).includes(m.id))(by[k]=by[k]||[]).push(m)});
  const rows=OR_THEMEN.filter(([k])=>by[k]&&by[k].length);if(!rows.length){toast('Noch nichts erkannt. Erst „Fotos anschauen“.');return}
  await clRun('Lade Vorschaubilder …',()=>clThumbs(rows.flatMap(([k])=>by[k].slice(-4))));
  sheet(`<h2>Themen in deinen Fotos</h2><p class="small muted">Erkannt am Bildinhalt. Tipp auf ein Thema, um die Fotos zu prüfen und in ein Album zu legen.</p>
@@ -97,7 +124,7 @@ async function orThemesSheet(){const info=await orLoad();const pool=orPool(),by=
   s.querySelectorAll('[data-th]').forEach(b=>b.onclick=()=>orThemeSheet(b.dataset.th,by[b.dataset.th]))})}
 async function orThemeSheet(k,list){const T=OR_THEMEN.find(x=>x[0]===k);list=list.slice().sort((a,b)=>b.taken-a.taken);let shown=Math.min(list.length,80);
  await clRun('Lade Vorschaubilder …',()=>clThumbs(list.slice(0,shown)));const sel=new Set(list.map(mkey));const by={};list.forEach(m=>by[mkey(m)]=m);const pet=!!OR_TIERNAME[k];
- sheet(`<h2>${esc(T[1])}</h2><p class="small muted">${list.length} Fotos. Grün = kommt ins Album. Tipp auf den Kreis nimmt ein Foto raus, aufs Bild zeigt es groß.</p>
+ sheet(`<h2>${esc(T[1])}</h2><p class="small muted">${list.length} Fotos. Grün = kommt ins Album. Falsch erkannt? Tipp auf den Kreis nimmt das Foto raus – es wird dann auch künftig nicht mehr hier vorgeschlagen. Tipp aufs Bild zeigt es groß.</p>
  ${pet?`<button class="btn block" id="orPet">${ICON.check} Nach Namen aufteilen (z. B. Hugo und Momo)</button>`:''}
  <label class="f">Album<input class="inp" id="orAlb" value="${esc(S.set['alb_'+k]||T[1].replace(' & ',' und '))}" autocomplete="off"></label>
  <div class="cl-grid alb" id="clGrid">${list.slice(0,shown).map(m=>clCell(m,true,'')).join('')}</div>${list.length>shown?'<button class="btn block ghost" id="clMore">Mehr anzeigen</button>':''}
@@ -106,10 +133,10 @@ async function orThemeSheet(k,list){const T=OR_THEMEN.find(x=>x[0]===k);list=lis
   clPick(s,sel,upd,()=>({list:list.slice(0,shown),group:false}));
   const more=s.querySelector('#clMore');more&&(more.onclick=async()=>{shown=Math.min(list.length,shown+80);await clThumbs(list.slice(0,shown));s.querySelector('#clGrid').innerHTML=list.slice(0,shown).map(m=>clCell(m,sel.has(mkey(m)),'')).join('');if(shown>=list.length)more.remove()});
   const p=s.querySelector('#orPet');p&&(p.onclick=()=>orPetSheet(k,list.filter(m=>sel.has(mkey(m)))));
-  go.onclick=()=>{const name=orClean(val('orAlb'));if(!name){toast('Gib dem Album einen Namen.');return}S.set['alb_'+k]=name;save();orMove([...sel].map(x=>by[x]).map(m=>({id:m.id,kind:m.kind,path:'Pictures/'+name})),`ins Album „${name}“ verschoben`)}})}
+  go.onclick=()=>{const name=orClean(val('orAlb'));if(!name){toast('Gib dem Album einen Namen.');return}S.set['alb_'+k]=name;S.orNo=S.orNo||{};S.orNo[k]=[...new Set([...(S.orNo[k]||[]),...list.filter(m=>!sel.has(mkey(m))).map(m=>m.id)])].slice(-3000);save();orMove([...sel].map(x=>by[x]).map(m=>({id:m.id,kind:m.kind,path:'Pictures/'+name})),`ins Album „${name}“ verschoben`)}})}
 
 /* Haustiere nach Namen: du zeigst ein paar Beispiele, Kleinkram ordnet den Rest nach Aussehen zu */
-function orFeat(a){if(!a)return null;const h=a.h?a.h.map(v=>Math.sqrt(v/1000)):null;const l={};(a.l||[]).forEach(([x,c])=>l[x]=c/100);return{h,l}}
+function orFeat(a){if(!a)return null;const h=a.h?a.h.map(v=>Math.sqrt(v/1000)):null;const l={};(a.l||[]).forEach(([x,c])=>l[x]=c/100);(a.n||[]).forEach(([x,c])=>l['n:'+x]=c/100);return{h,l}}
 function orDist(p,q){let d=0;if(p.h&&q.h){for(let i=0;i<64;i++)d+=(p.h[i]-q.h[i])**2;d=Math.sqrt(d)}else d=.8;
  const ks=new Set([...Object.keys(p.l),...Object.keys(q.l)]);let e=0;ks.forEach(k=>e+=((p.l[k]||0)-(q.l[k]||0))**2);return d+.35*Math.sqrt(e)}
 async function orPetSheet(k,list){const info=await orLoad();const T=OR_TIERNAME[k];let names=(S.set['pets_'+k]||'').split(',').map(x=>x.trim()).filter(Boolean);
