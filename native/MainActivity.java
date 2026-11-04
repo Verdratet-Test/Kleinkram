@@ -10,6 +10,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(KleinkramNativePlugin.class);
         registerPlugin(AufraeumenPlugin.class);
         registerPlugin(TexterkennungPlugin.class);
+        registerPlugin(SperrePlugin.class);
         super.onCreate(savedInstanceState);
     }
 }

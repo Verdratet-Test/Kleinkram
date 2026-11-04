@@ -8,6 +8,8 @@ import sys
 DEPS = [
     # Texterkennung auf dem Gerät (Modell in der App enthalten, kein Internet nötig)
     "implementation 'com.google.mlkit:text-recognition:16.0.1'",
+    # App-Sperre mit Fingerabdruck / Display-Sperre
+    "implementation 'androidx.biometric:biometric:1.1.0'",
 ]
 
 path = sys.argv[1]

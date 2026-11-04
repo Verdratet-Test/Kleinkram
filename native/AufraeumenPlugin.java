@@ -38,6 +38,12 @@ import com.getcapacitor.annotation.Permission;
 import com.getcapacitor.annotation.PermissionCallback;
 
 import org.json.JSONObject;
+import com.google.android.gms.tasks.Tasks;
+import com.google.mlkit.vision.common.InputImage;
+import com.google.mlkit.vision.text.Text;
+import com.google.mlkit.vision.text.TextRecognition;
+import com.google.mlkit.vision.text.TextRecognizer;
+import com.google.mlkit.vision.text.latin.TextRecognizerOptions;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -333,6 +339,66 @@ public class AufraeumenPlugin extends Plugin {
                 call.reject("Vorschau ging nicht: " + e.getMessage());
             }
         }).start();
+    }
+
+    private volatile boolean belegStop = false;
+
+    /**
+     * Rechnungen/Briefe in Fotos finden: liest den Text der übergebenen Fotos (ML Kit, im Gerät)
+     * und gibt ihn zurück. Bewertet wird in der App. Fortschritt über "belegFortschritt".
+     */
+    @PluginMethod
+    public void belegeSuchen(final PluginCall call) {
+        final org.json.JSONArray items = call.getData().optJSONArray("items");
+        final int px = Math.max(800, Math.min(2400, call.getInt("size", 1600)));
+        if (items == null) { call.reject("Keine Fotos"); return; }
+        belegStop = false;
+        new Thread(() -> {
+            TextRecognizer rec = null;
+            try {
+                rec = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS);
+                ContentResolver cr = getContext().getContentResolver();
+                JSArray out = new JSArray();
+                int n = items.length();
+                for (int i = 0; i < n && !belegStop; i++) {
+                    JSONObject it = items.getJSONObject(i);
+                    try {
+                        Bitmap bmp = decodeLarge(cr, it, px);
+                        if (bmp != null) {
+                            Text t = Tasks.await(rec.process(InputImage.fromBitmap(bmp, 0)));
+                            bmp.recycle();
+                            String s = t.getText();
+                            if (s != null && s.length() >= 80) {
+                                JSObject o = new JSObject();
+                                o.put("id", it.optLong("id"));
+                                o.put("text", s.length() > 5000 ? s.substring(0, 5000) : s);
+                                out.put(o);
+                            }
+                        }
+                    } catch (Throwable ignored) { }
+                    if (i % 3 == 0 || i == n - 1) {
+                        JSObject p = new JSObject();
+                        p.put("i", i + 1);
+                        p.put("n", n);
+                        notifyListeners("belegFortschritt", p);
+                    }
+                }
+                JSObject r = new JSObject();
+                r.put("items", out);
+                r.put("stopped", belegStop);
+                call.resolve(r);
+            } catch (Throwable e) {
+                call.reject("Suche ging nicht: " + e.getMessage());
+            } finally {
+                try { if (rec != null) rec.close(); } catch (Throwable ignored) { }
+            }
+        }).start();
+    }
+
+    @PluginMethod
+    public void belegeStopp(PluginCall call) {
+        belegStop = true;
+        call.resolve();
     }
 
     private Bitmap decodeLarge(ContentResolver cr, JSONObject it, final int max) throws Exception {
