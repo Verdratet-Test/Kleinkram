@@ -12,6 +12,8 @@ DEPS = [
     "implementation 'androidx.biometric:biometric:1.1.0'",
     # Fotos nach Inhalt erkennen (Katze, Hund, Essen …), Modell in der App, offline
     "implementation 'com.google.mlkit:image-labeling:17.0.9'",
+    # genaueres Zusatzmodell (ImageNet, 1000 Klassen) aus assets/imagenet.tflite
+    "implementation 'com.google.mlkit:image-labeling-custom:17.0.3'",
 ]
 
 path = sys.argv[1]
@@ -26,5 +28,10 @@ if "abiFilters" not in src:
     d = re.search(r"defaultConfig\s*\{", src)
     if d:
         src = src[: d.end()] + "\n        ndk { abiFilters 'arm64-v8a', 'armeabi-v7a' }" + src[d.end():]
+# Modelle unkomprimiert einpacken (werden direkt aus der APK gelesen)
+if "noCompress" not in src:
+    a = re.search(r"^android\s*\{", src, re.M)
+    if a:
+        src = src[: a.end()] + "\n    androidResources { noCompress 'tflite' }" + src[a.end():]
 open(path, "w", encoding="utf-8").write(src)
 print("build.gradle ergänzt:", add.strip() or "(schon vorhanden)")

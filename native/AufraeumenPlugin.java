@@ -44,6 +44,8 @@ import com.google.mlkit.vision.label.ImageLabel;
 import com.google.mlkit.vision.label.ImageLabeler;
 import com.google.mlkit.vision.label.ImageLabeling;
 import com.google.mlkit.vision.label.defaults.ImageLabelerOptions;
+import com.google.mlkit.common.model.LocalModel;
+import com.google.mlkit.vision.label.custom.CustomImageLabelerOptions;
 import com.google.mlkit.vision.text.Text;
 import com.google.mlkit.vision.text.TextRecognition;
 import com.google.mlkit.vision.text.TextRecognizer;
@@ -427,9 +429,16 @@ public class AufraeumenPlugin extends Plugin {
         if (items == null) { call.reject("Keine Fotos"); return; }
         belegStop = false;
         new Thread(() -> {
-            ImageLabeler lab = null;
+            ImageLabeler lab = null, net = null;
             try {
-                if (doLabels) lab = ImageLabeling.getClient(new ImageLabelerOptions.Builder().setConfidenceThreshold(0.55f).build());
+                if (doLabels) lab = ImageLabeling.getClient(new ImageLabelerOptions.Builder().setConfidenceThreshold(0.5f).build());
+                if (doLabels) {
+                    try {
+                        getContext().getAssets().open("imagenet.tflite").close();
+                        LocalModel lm = new LocalModel.Builder().setAssetFilePath("imagenet.tflite").build();
+                        net = ImageLabeling.getClient(new CustomImageLabelerOptions.Builder(lm).setConfidenceThreshold(0.08f).setMaxResultCount(6).build());
+                    } catch (Throwable ignored) { net = null; }
+                }
                 ContentResolver cr = getContext().getContentResolver();
                 boolean geoOk = doGeo && Build.VERSION.SDK_INT >= 24 && (Build.VERSION.SDK_INT < 29 || getPermissionState("location") == PermissionState.GRANTED);
                 JSArray out = new JSArray();
@@ -471,7 +480,18 @@ public class AufraeumenPlugin extends Plugin {
                                     if (TIERE.contains(l.getText())) tier = true;
                                 }
                                 o.put("l", la);
-                                if (tier) o.put("h", farbProfil(bmp));
+                                if (net != null) {
+                                    List<ImageLabel> ns = Tasks.await(net.process(InputImage.fromBitmap(bmp, 0)));
+                                    JSArray na = new JSArray();
+                                    for (ImageLabel l : ns) {
+                                        JSArray x = new JSArray();
+                                        x.put(l.getText());
+                                        x.put(Math.round(l.getConfidence() * 100));
+                                        na.put(x);
+                                    }
+                                    o.put("n", na);
+                                }
+                                o.put("h", farbProfil(bmp));
                                 bmp.recycle();
                             }
                         } catch (Throwable ignored) { }
@@ -487,12 +507,14 @@ public class AufraeumenPlugin extends Plugin {
                 JSObject r = new JSObject();
                 r.put("items", out);
                 r.put("geo", geoOk);
+                r.put("imagenet", net != null);
                 r.put("stopped", belegStop);
                 call.resolve(r);
             } catch (Throwable e) {
                 call.reject("Analyse ging nicht: " + e.getMessage());
             } finally {
                 try { if (lab != null) lab.close(); } catch (Throwable ignored) { }
+                try { if (net != null) net.close(); } catch (Throwable ignored) { }
             }
         }).start();
     }

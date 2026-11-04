@@ -52,6 +52,15 @@ jobs:
           python3 native/gradle.py android/app/build.gradle
           sed -i -E "s/versionCode [0-9]+/versionCode ${{ github.run_number }}/; s/versionName \"[^\"]+\"/versionName \"1.${{ github.run_number }}\"/" android/app/build.gradle
 
+      - name: Bilderkennungs-Modell holen (ImageNet, offline in der App)
+        run: |
+          mkdir -p android/app/src/main/assets
+          B=https://storage.googleapis.com/download.tensorflow.org/models/tflite/task_library/image_classification/android
+          for m in efficientnet_lite2_int8_2 efficientnet_lite0_int8_2 mobilenet_v1_1.0_224_quantized_1_metadata_1; do
+            if curl -fsSL -o android/app/src/main/assets/imagenet.tflite "$B/$m.tflite"; then echo "Modell: $m ($(stat -c%s android/app/src/main/assets/imagenet.tflite) Bytes)"; break; fi
+          done
+          [ -s android/app/src/main/assets/imagenet.tflite ] || { echo "::warning::Kein Zusatzmodell – nur Grundmodell"; rm -f android/app/src/main/assets/imagenet.tflite; }
+
       - name: APK bauen
         working-directory: android
         run: ./gradlew assembleRelease --no-daemon
