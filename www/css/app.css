@@ -286,3 +286,9 @@ span.cl-cell .ck{display:none}
 .pl-tg{flex:none;width:30px;height:30px;border-radius:50%;border:2px solid var(--line);background:transparent;color:#fff;font-weight:700;font-size:16px;margin-top:2px}
 .pl-row.on .pl-tg{background:#2ea05a;border-color:#2ea05a}
 .pl-src{margin:4px 0 0;font-family:ui-monospace,monospace;font-size:11px;word-break:break-word}
+/* App-Sperre */
+html.kk-locked body>*:not(#lockScr){visibility:hidden}
+#lockScr{position:fixed;inset:0;z-index:9999;background:var(--bg);display:grid;place-items:center;padding:24px max(16px,env(safe-area-inset-left,0px))}
+.lock-box{display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;color:var(--ink)}
+.lock-box svg{width:48px;height:48px;color:var(--stamp)}
+.lock-box h2{margin:6px 0 0}

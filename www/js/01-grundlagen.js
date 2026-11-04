@@ -56,6 +56,7 @@ function seed(){const t=today(),y=+t.slice(0,4);const r=(title,cat,every,next,le
 let S;
 try{S=JSON.parse(localStorage.getItem(KEY)||'null')}catch(e){S=null}
 if(!S||S.v!==1)S=seed();
+try{if(window.Capacitor&&Capacitor.isNativePlatform&&Capacitor.isNativePlatform()&&S.set&&S.set.lock)document.documentElement.classList.add('kk-locked')}catch(e){}
 let storageOK=true;
 if(!S.m2){S.m2=1;S.routines.forEach(r=>{r.freq=r.freq||'daily'});
  S.routines.push({id:uid(),title:'Rechnungen prüfen und ggf. überweisen',pflicht:true,days:[],freq:'days',n:3,wd:0,time:'',link:'unpaid'},{id:uid(),title:'Dokumente einräumen',pflicht:true,days:[],freq:'weekly',n:7,wd:0,time:'',link:'docs'});

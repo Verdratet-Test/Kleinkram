@@ -87,6 +87,7 @@ function vAufraeumen(){if(CAP)clRefreshStatus();const c=clStore(),st=CL.st||{};
    card('shots','Alte Screenshots','Älter als 30 Tage',C.shots.length,sumB(C.shots))+
    card('wa','WhatsApp-Medien','Bilder und Videos aus Chats, älter als 90 Tage',C.wa.length,sumB(C.wa))+
    card('bigv','Große Videos','Über 100 MB',C.bigv.length,sumB(C.bigv))+
+   card('belege','Rechnungen &amp; Briefe in Fotos','Fotografierte Belege der letzten 4 Monate finden und in die Ablage übernehmen',CL.belege?CL.belege.length:null,0,CL.belege?'Ansehen':'Suchen')+
    card('trash','Papierkorb','Zurückholen oder endgültig löschen, um sofort Platz zu schaffen',null,0,'Öffnen')+
    `<div class="li"><button class="btn sm ghost" data-act="clScanMedia" ${CL.busy?'disabled':''}>Neu prüfen</button></div>`}
  h+=reg('Fotos &amp; Videos',null,f);
@@ -113,6 +114,7 @@ function clCell(m,on,tag){const t=CL.thumbs[mkey(m)];return`<div class="cl-cell$
 async function clOpen(k){const C=CL.cat;
  if(k==='dupM'&&!CL.dupM){await clRun('Suche doppelte Fotos …',clFindDupMedia);if(!CL.dupM)return;if(!CL.dupM.length)return toast('Keine doppelten Fotos gefunden.')}
  if(k==='similar'&&!CL.similar){await clRun('Suche Serienbilder …',clFindSimilar);if(!CL.similar)return;if(!CL.similar.length)return toast('Keine Serienbilder gefunden.')}
+ if(k==='belege'){if(!CL.belege){await clRun('Suche Rechnungen und Briefe in Fotos …',clFindBelege);if(!CL.belege)return;if(!CL.belege.length)return toast('Keine neuen Belege in den Fotos gefunden.')}return belegeSheet()}
  if(k==='fdup'&&!CL.fdup){await clRun('Suche doppelte Dateien …',clFindDupFiles);if(!CL.fdup)return;if(!CL.fdup.length)return toast('Keine doppelten Dateien gefunden.')}
  if(k==='dupM')return clGroupSheet('Doppelte Fotos & Videos','Pro Gruppe bleibt das Original (grün) erhalten, rot markierte kommen in den Papierkorb. Tippe aufs Bild für die große Ansicht, auf den Kreis zum Auswählen.',CL.dupM.slice(0,60));
  if(k==='similar')return clGroupSheet('Serienbilder','Kleinkram behält pro Serie das schärfste Bild (grün). Tippe aufs Bild, um es groß anzusehen und zu vergleichen. Der Kreis ändert die Auswahl.',CL.similar.slice(0,60));
@@ -202,3 +204,28 @@ function clFileTrashSheet(){const ft=clStore().fileTrash;
  s.querySelector('#clBack').onclick=async()=>{const l=pick();if(!l.length)return;const r=await AR().restoreFiles({pairs:l.map(x=>({now:x.now,orig:x.orig}))});const ok=new Set((r.done||[]).map(d=>d.now));clStore().fileTrash=ft.filter(x=>!ok.has(x.now));save();closeSheet();toast(`${nD(ok.size)} zurückgelegt`);CL.files=null;render()};
  s.querySelector('#clDel').onclick=()=>{const l=pick();if(!l.length)return;confirmSheet('Endgültig löschen?',`${nD(l.length)} (${fmtB(sumB(l))}) werden unwiderruflich gelöscht.`,'Endgültig löschen',async()=>{const r=await AR().deleteFiles({paths:l.map(x=>x.now)});const gone=new Set(l.map(x=>x.now));clStore().fileTrash=ft.filter(x=>!gone.has(x.now));clStore().freed+=r.bytes||0;save();stamp('Platz frei');toast(`${fmtB(r.bytes||0)} freigegeben`);render()},true)}})}
 async function clUndoMove(){const lm=clStore().lastMove||[];if(!lm.length)return;const r=await AR().restoreFiles({pairs:lm.map(x=>({now:x.now,orig:x.orig}))});clStore().lastMove=null;save();toast(`${nD((r.done||[]).length)} zurück in Download`);CL.files=null;render()}
+
+/* ---------- Rechnungen & Briefe in Fotos finden ---------- */
+const BELEG_KW=[[/\b[A-Z]{2}\d{2}(?:\s?[0-9A-Z]{4}){3,7}/,4],[/rechnung/i,3],[/mahnung|zahlungserinnerung|letzte erinnerung/i,4],[/rechnungs-?n(umme)?r|kunden-?n(umme)?r|vertrags-?n(umme)?r|aktenzeichen/i,2],
+ [/f[äa]llig|zahlbar bis|zahlungsziel|bitte überweisen/i,2],[/gesamtbetrag|rechnungsbetrag|endbetrag|zu zahlen|betrag/i,2],[/\d{1,3}(?:\.\d{3})*,\d{2}\s?(?:€|eur)/i,2],[/ust|mwst|umsatzsteuer/i,1],
+ [/bescheid|finanzamt|steuer-?id|steuernummer|krankenkasse|rentenversicherung|jobcenter/i,3],[/vertrag|kündigung|versicherung|police|beitrag/i,2],[/sehr geehrte|mit freundlichen gr/i,2],[/frist|innerhalb von \d+ (tagen|wochen)|bis zum \d/i,1]];
+function belegScore(t){let s=0;for(const[r,w]of BELEG_KW)if(r.test(t))s+=w;if(t.length<200)s-=3;return s}
+const galSeen=()=>new Set([...(S.galSeen||[]),...S.docs.filter(d=>d.galId).map(d=>String(d.galId))]);
+async function clFindBelege(){const seen=galSeen(),since=Date.now()-120*864e5;
+ const cand=CL.media.filter(m=>m.kind==='image'&&m.taken>=since&&!seen.has(String(m.id))&&!/sticker|gif/i.test(m.mime+m.path)).sort((a,b)=>b.taken-a.taken).slice(0,400);
+ if(!cand.length){CL.belege=[];return}
+ let h=null;try{h=await AR().addListener('belegFortschritt',p=>clBusy(`Lese Fotos … ${p.i} von ${p.n}`))}catch(e){}
+ let r;try{r=await AR().belegeSuchen({items:cand.map(m=>({id:m.id,kind:'image'})),size:1600})}finally{try{h&&h.remove()}catch(e){}}
+ const by={};cand.forEach(m=>by[m.id]=m);
+ CL.belege=(r.items||[]).map(x=>{const m=by[x.id];if(!m)return null;const t=String(x.text||''),sc=belegScore(t);if(sc<5)return null;const d=parseInvoiceText(t);
+  const inv=!!(d.iban||/rechnung|mahnung|zahlungserinnerung/i.test(t)&&d.amount);return{m,text:t,score:sc,inv,d,title:inv?(d.payee||'Rechnung'):(guessDocTitle(t)||'Brief')}}).filter(Boolean)}
+async function belegeSheet(){const L=CL.belege;await clThumbs(L.map(b=>b.m));CL.busy='';render();
+ sheet(`<h2>Belege in deinen Fotos</h2><p class="small muted">${L.length} Foto${L.length>1?'s sehen':' sieht'} nach Rechnung oder Brief aus. Übernehmen legt eine Kopie in die Ablage – mit IBAN, Betrag und Fristen, soweit erkannt. Das Foto in der Galerie bleibt unverändert.</p>
+ <div id="blList">${L.map((b,i)=>{const th=CL.thumbs[mkey(b.m)];return`<div class="li" data-bl="${i}"><img src="${th&&th.src||''}" alt="" style="width:64px;height:64px;object-fit:cover;border-radius:8px;flex:none;cursor:zoom-in" data-blv="${i}"><div class="grow"><p><b>${esc(b.title)}</b></p><p class="small muted">${b.inv?'<span class="chip warn">Rechnung</span> ':'<span class="chip">Brief</span> '}${b.d.amount?eur(b.d.amount)+' · ':''}${fmtDate(iso(new Date(b.m.taken)))}</p><div class="row" style="margin-top:6px"><button class="btn sm pri" data-bla="${i}">Übernehmen</button><button class="btn sm ghost" data-blx="${i}">Kein Beleg</button></div></div></div>`}).join('')}</div>`,s=>{
+  s.querySelectorAll('[data-blx]').forEach(b=>b.onclick=()=>{const x=L[+b.dataset.blx];S.galSeen=[...(S.galSeen||[]),String(x.m.id)].slice(-3000);save();CL.belege=L.filter(y=>y!==x);if(!CL.belege.length){closeSheet();render();return}belegeSheet()});
+  s.querySelectorAll('[data-blv]').forEach(b=>b.onclick=()=>clViewer([L[+b.dataset.blv].m],0,new Set(),()=>{}));
+  s.querySelectorAll('[data-bla]').forEach(b=>b.onclick=async()=>{const x=L[+b.dataset.bla];b.disabled=true;b.textContent='Lade …';let img=null;
+   try{const r=await AR().preview({id:x.m.id,kind:'image',size:1600,inline:true});img=r.src||null}catch(e){}
+   CL.belege=L.filter(y=>y!==x);closeSheet();
+   if(x.inv)invoiceSheet(Object.assign({},x.d,{raw:x.text.slice(0,6000),galId:String(x.m.id)}),img,'ocr');
+   else newDocSheet({img,text:x.text,galId:String(x.m.id),title:x.title})})})}

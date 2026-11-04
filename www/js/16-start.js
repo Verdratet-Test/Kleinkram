@@ -38,6 +38,8 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-act]');if
  case'backup':backupSheet();break;
  case'restore':restoreSheet();break;
  case'reset':resetSheet();break;
+ case'abNow':toast('Sichere …');autoBackup(true).then(ok=>toast(ok?'Gesichert in Dokumente/Kleinkram/Sicherungen':'Sicherung ging nicht'));break;
+ case'abManage':abManageSheet();break;
  case'ics':exportSheet();break;
  case'planScan':planInfoSheet();break;
  case'rlink':UI.abl='belege';if(el.dataset.l==='unpaid')UI.docFilter='offen';go('ablage');break;
@@ -60,7 +62,7 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-act]');if
  case'clUndoMove':confirmSheet('Sortieren rückgängig?','Die zuletzt einsortierten Dateien kommen zurück in Download.','Rückgängig',()=>clUndoMove());break;
  case'notifPerm':if(CAP){toast('Frage Erlaubnis an …');CapP('LocalNotifications').requestPermissions().then(r=>{toast(r.display==='granted'?'Benachrichtigungen erlaubt':'Nicht erlaubt. In den Handy-Einstellungen änderbar.');scheduleAll();setTimeout(notifStatus,800)}).catch(e=>toast('Fehler: '+(e&&e.message||e)));break}toast('Geht nur in der App.');break;
  case'sndPreview':previewSound();break;
- case'notifNow':{toast('Einen Moment …');const LN=CapP('LocalNotifications');LN.requestPermissions().then(r=>{if(r.display!=='granted'){toast('Benachrichtigungen sind nicht erlaubt.');return}return ensureChannel().then(ch=>LN.schedule({notifications:[notif({id:hid('kk-now'),title:'Kleinkram',body:`So klingt „${SOUNDS[sndKey()].n.split(' ·')[0]}“.`,schedule:{at:new Date(Date.now()+3000),allowWhileIdle:true}},ch)]})).then(()=>toast('Kommt in 3 Sekunden'))}).catch(e=>toast('Fehler: '+(e&&e.message||e)));break}
+ case'notifNow':{toast('Einen Moment …');const LN=CapP('LocalNotifications');LN.requestPermissions().then(r=>{if(r.display!=='granted'){toast('Benachrichtigungen sind nicht erlaubt.');return}return ensureChannel().then(ch=>LN.schedule({notifications:[notif({id:hid('kk-now'),actionTypeId:'kk_l',extra:{k:'test'},title:'Kleinkram',body:`So klingt „${SOUNDS[sndKey()].n.split(' ·')[0]}“.`,schedule:{at:new Date(Date.now()+3000),allowWhileIdle:true}},ch)]})).then(()=>toast('Kommt in 3 Sekunden'))}).catch(e=>toast('Fehler: '+(e&&e.message||e)));break}
  case'exactPerm':{toast('Öffne Einstellung …');const LN=CapP('LocalNotifications');LN.changeExactNotificationSetting().then(()=>setTimeout(notifStatus,800)).catch(e=>toast('Ging nicht: '+(e&&e.message||e)));break}
  case'notifTest':{if(CAP){toast('Plane Test …');const LN=CapP('LocalNotifications');LN.requestPermissions().then(()=>ensureChannel()).then(ch=>LN.schedule({notifications:[notif({id:hid('kk-test'),title:'Kleinkram',body:'Test-Erinnerung angekommen. Es klappt!',schedule:{at:new Date(Date.now()+60000),allowWhileIdle:true}},ch)]})).then(()=>{toast('Test geplant. Warte 1 Minute.');setTimeout(notifStatus,500)}).catch(e=>toast('Planen ging nicht: '+(e&&e.message||e)));break}toast('Geht nur in der App.');break}}});
 document.addEventListener('change',e=>{const t=e.target;
@@ -71,6 +73,8 @@ document.addEventListener('change',e=>{const t=e.target;
  if(t.id==='setSound2'){S.set.sound2=t.value;save();previewSound();scheduleAll();toast(`Signalton: ${SOUNDS[t.value].n.split(' ·')[0]}`)}
  if(t.id==='setBriefTime'){S.set.briefTime=t.value||'07:00';save()}
  if(t.id==='setRemindMin'){S.set.remindMin=+t.value;save()}
+ if(t.id==='setLock')lockToggle(t);
+ if(t.id==='setAutoBackup'){S.set.autoBackup=t.checked;save();if(t.checked)autoBackup();render()}
  if(t.dataset.set==='brief'||t.dataset.set==='remind'){if(t.checked&&CAP)CapP('LocalNotifications').requestPermissions().catch(()=>{});scheduleAll()}});
 document.addEventListener('input',e=>{if(e.target.id==='docQ'){const q=e.target.value.toLowerCase().trim();document.querySelectorAll('[data-s]').forEach(li=>li.hidden=!!q&&!li.dataset.s.includes(q))}});
 document.addEventListener('keydown',e=>{if(e.key!=='Escape')return;if(clViewerOpen())clViewerClose();else if($('#sheetHost').innerHTML)closeSheet()});
