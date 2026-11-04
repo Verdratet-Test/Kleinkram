@@ -26,11 +26,11 @@ if not m:
     sys.exit("dependencies-Block nicht gefunden")
 add = "".join(f"\n    {d}" for d in DEPS if d not in src)
 src = src[: m.end()] + add + src[m.end():]
-# Nur Handy-Prozessoren (ARM) einpacken – spart ~20 MB (x86 gibt es nur im Emulator)
+# Nur 64-Bit-ARM einpacken (alle Handys seit ca. 2017) – spart viel Platz
 if "abiFilters" not in src:
     d = re.search(r"defaultConfig\s*\{", src)
     if d:
-        src = src[: d.end()] + "\n        ndk { abiFilters 'arm64-v8a', 'armeabi-v7a' }" + src[d.end():]
+        src = src[: d.end()] + "\n        ndk { abiFilters 'arm64-v8a' }" + src[d.end():]
 # Modelle unkomprimiert einpacken (werden direkt aus der APK gelesen)
 if "noCompress" not in src:
     a = re.search(r"^android\s*\{", src, re.M)
