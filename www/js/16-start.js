@@ -71,12 +71,12 @@ document.addEventListener('change',e=>{const t=e.target;
  if(t.id==='setRemindMin'){S.set.remindMin=+t.value;save()}
  if(t.dataset.set==='brief'||t.dataset.set==='remind'){if(t.checked&&CAP)CapP('LocalNotifications').requestPermissions().catch(()=>{});scheduleAll()}});
 document.addEventListener('input',e=>{if(e.target.id==='docQ'){const q=e.target.value.toLowerCase().trim();document.querySelectorAll('[data-s]').forEach(li=>li.hidden=!!q&&!li.dataset.s.includes(q))}});
-document.addEventListener('keydown',e=>{if(e.key==='Escape'&&$('#sheetHost').innerHTML)closeSheet()});
+document.addEventListener('keydown',e=>{if(e.key!=='Escape')return;if(clViewerOpen())clViewerClose();else if($('#sheetHost').innerHTML)closeSheet()});
 window.addEventListener('hashchange',()=>{const h=location.hash.slice(1);if(NAV.some(n=>n[0]===h)&&h!==UI.tab){UI.tab=h;render()}});
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&!$('#focusHost').innerHTML){if(UI.tab==='aufraeumen')CL.stAt=0;render();if(CAP)scheduleAll()}});
 
 /* ---------- Android: Zurück-Taste, Statusleiste ---------- */
-function onBack(){if($('#sheetHost').innerHTML){closeSheet();return true}const fx=document.querySelector('[data-f="close"]');if(fx){fx.click();return true}if(UI.tab==='aufraeumen'){go('ich');return true}if(UI.tab!=='heute'){go('heute');return true}return false}
+function onBack(){if(typeof clViewerOpen==='function'&&clViewerOpen()){clViewerClose();return true}if($('#sheetHost').innerHTML){closeSheet();return true}const fx=document.querySelector('[data-f="close"]');if(fx){fx.click();return true}if(UI.tab==='aufraeumen'){go('ich');return true}if(UI.tab!=='heute'){go('heute');return true}return false}
 if(CAP){try{CapP('App').addListener('backButton',()=>{if(!onBack()){try{CapP('App').minimizeApp()}catch(e){}}})}catch(e){}
  const sb=()=>{const dark=window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches;try{const SB=CapP('StatusBar');SB.setStyle({style:dark?'DARK':'LIGHT'}).catch(()=>{});SB.setBackgroundColor({color:dark?'#121815':'#ECEFE9'}).catch(()=>{})}catch(e){}};
  sb();try{matchMedia('(prefers-color-scheme: dark)').addEventListener('change',sb)}catch(e){}}

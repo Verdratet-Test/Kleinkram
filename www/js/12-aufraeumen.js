@@ -39,7 +39,7 @@ async function clThumbs(list){const need=list.filter(m=>!CL.thumbs[mkey(m)]);
 async function clFindSimilar(){const im=CL.media.filter(m=>m.kind==='image'&&!isShot(m)).sort((a,b)=>a.taken-b.taken),runs=[];let cur=[];
  for(const m of im){if(cur.length&&(m.taken-cur[cur.length-1].taken>8000||m.bucket!==cur[0].bucket)){if(cur.length>1)runs.push(cur);cur=[]}cur.push(m)}if(cur.length>1)runs.push(cur);
  const use=runs.slice(-200);await clThumbs(use.flat().slice(-1000));const out=[];
- use.forEach(run=>{const cl=[];run.forEach(m=>{const t=CL.thumbs[mkey(m)];if(!t)return;const c=cl.find(c=>hamming(CL.thumbs[mkey(c[0])].dhash,t.dhash)<=10);c?c.push(m):cl.push([m])});cl.filter(c=>c.length>1).forEach(c=>out.push(c.sort((a,b)=>b.size-a.size)))});
+ use.forEach(run=>{const cl=[];run.forEach(m=>{const t=CL.thumbs[mkey(m)];if(!t)return;const c=cl.find(c=>hamming(CL.thumbs[mkey(c[0])].dhash,t.dhash)<=10);c?c.push(m):cl.push([m])});const sh=m=>(CL.thumbs[mkey(m)]||{}).sharp||0;cl.filter(c=>c.length>1).forEach(c=>out.push(c.sort((a,b)=>sh(b)-sh(a)||(b.w*b.h)-(a.w*a.h)||b.size-a.size)))});
  CL.similar=out.reverse()}
 function clDropMedia(list){const ks=new Set(list.map(mkey));const f=a=>a.filter(m=>!ks.has(mkey(m)));CL.media=f(CL.media);
  if(CL.dupM)CL.dupM=CL.dupM.map(f).filter(g=>g.length>1);if(CL.similar)CL.similar=CL.similar.map(f).filter(g=>g.length>1);clAnalyzeMedia()}
@@ -109,13 +109,13 @@ function vAufraeumen(){if(CAP)clRefreshStatus();const c=clStore(),st=CL.st||{};
  return h}
 
 /* Auswahl-Fenster */
-function clCell(m,on,tag){const t=CL.thumbs[mkey(m)];return`<button class="cl-cell${on?' on':''}" data-ck="${mkey(m)}" aria-pressed="${on}" aria-label="${esc(m.name)}">${t?`<img src="${t.src}" alt="">`:`<span class="cl-ph">${m.kind==='video'?'Video':'Foto'}</span>`}<span class="ck">${ICON.check}</span>${tag?`<span class="tag${tag==='behalten'?' keep':''}">${esc(tag)}</span>`:m.kind==='video'?'<span class="tag">Video</span>':''}</button>`}
+function clCell(m,on,tag){const t=CL.thumbs[mkey(m)];return`<div class="cl-cell${on?' on':''}" data-ck="${mkey(m)}"><button class="cl-open" data-open aria-label="${esc(m.name)} groß ansehen">${t?`<img src="${t.src}" alt="">`:`<span class="cl-ph">${m.kind==='video'?'Video':'Foto'}</span>`}</button><button class="ck" data-tog aria-pressed="${on}" aria-label="${on?'Wird gelöscht':'Wird behalten'}">${ICON.check}</button>${tag==='behalten'?'<span class="tag keep">behalten</span>':tag?`<span class="tag">${esc(tag)}</span>`:m.kind==='video'?'<span class="tag">Video</span>':''}</div>`}
 async function clOpen(k){const C=CL.cat;
  if(k==='dupM'&&!CL.dupM){await clRun('Suche doppelte Fotos …',clFindDupMedia);if(!CL.dupM)return;if(!CL.dupM.length)return toast('Keine doppelten Fotos gefunden.')}
  if(k==='similar'&&!CL.similar){await clRun('Suche Serienbilder …',clFindSimilar);if(!CL.similar)return;if(!CL.similar.length)return toast('Keine Serienbilder gefunden.')}
  if(k==='fdup'&&!CL.fdup){await clRun('Suche doppelte Dateien …',clFindDupFiles);if(!CL.fdup)return;if(!CL.fdup.length)return toast('Keine doppelten Dateien gefunden.')}
- if(k==='dupM')return clGroupSheet('Doppelte Fotos & Videos','Pro Gruppe bleibt das Original (grün) erhalten. Rot markierte kommen in den Papierkorb.',CL.dupM.slice(0,60));
- if(k==='similar')return clGroupSheet('Serienbilder','Kleinkram behält pro Serie das größte Bild (grün). Tippe Bilder an, um die Auswahl zu ändern.',CL.similar.slice(0,60));
+ if(k==='dupM')return clGroupSheet('Doppelte Fotos & Videos','Pro Gruppe bleibt das Original (grün) erhalten, rot markierte kommen in den Papierkorb. Tippe aufs Bild für die große Ansicht, auf den Kreis zum Auswählen.',CL.dupM.slice(0,60));
+ if(k==='similar')return clGroupSheet('Serienbilder','Kleinkram behält pro Serie das schärfste Bild (grün). Tippe aufs Bild, um es groß anzusehen und zu vergleichen. Der Kreis ändert die Auswahl.',CL.similar.slice(0,60));
  if(k==='shots')return clListSheet('Alte Screenshots',C.shots,true);
  if(k==='wa')return clListSheet('WhatsApp-Medien',C.wa,false);
  if(k==='bigv')return clListSheet('Große Videos',C.bigv,false);
@@ -127,14 +127,40 @@ async function clOpen(k){const C=CL.cat;
  if(k==='fbig')return clFileSheet('Große Dateien',CL.fcat.big.map(f=>({f,on:false})));
  if(k==='fsort')return clSortSheet();
  if(k==='ftrash')return clFileTrashSheet()}
-function clPick(s,sel,onChange){s.addEventListener('click',e=>{const b=e.target.closest('[data-ck]');if(!b)return;const k=b.dataset.ck;sel.has(k)?sel.delete(k):sel.add(k);b.classList.toggle('on',sel.has(k));b.setAttribute('aria-pressed',sel.has(k));onChange()})}
+function clSync(s,sel){s.querySelectorAll('[data-ck]').forEach(c=>{const on=sel.has(c.dataset.ck);c.classList.toggle('on',on);const t=c.querySelector('[data-tog]');t&&(t.setAttribute('aria-pressed',on),t.setAttribute('aria-label',on?'Wird gelöscht':'Wird behalten'))})}
+function clPick(s,sel,onChange,ctx){s.addEventListener('click',e=>{const c=e.target.closest('[data-ck]');if(!c)return;const k=c.dataset.ck;
+ if(e.target.closest('[data-tog]')||!ctx){sel.has(k)?sel.delete(k):sel.add(k);clSync(s,sel);onChange();return}
+ if(e.target.closest('[data-open]')){const g=ctx(k);if(g)clViewer(g.list,g.list.findIndex(m=>mkey(m)===k),sel,()=>{clSync(s,sel);onChange()},g.group)}})}
+
+/* Große Vorschau zum Kontrollieren */
+const contentUri=m=>`content://media/external/${m.kind==='video'?'video':'images'}/media/${m.id}`;
+function clViewer(list,i,sel,changed,group){const host=document.getElementById('viewerHost')||document.body.appendChild(Object.assign(document.createElement('div'),{id:'viewerHost'}));let zoom=false;
+ const maxSharp=Math.max(1,...list.map(m=>(CL.thumbs[mkey(m)]||{}).sharp||0));
+ const draw=()=>{const m=list[i],k=mkey(m),t=CL.thumbs[k]||{},on=sel.has(k),d=new Date(m.taken),sp=t.sharp!=null?Math.round(t.sharp/maxSharp*100):null;
+  host.innerHTML=`<div class="vw" role="dialog" aria-modal="true" aria-label="Vorschau"><div class="vw-top"><span class="vw-pos">${i+1} von ${list.length}</span><span class="grow"></span><button class="vw-btn" data-v="zoom">${zoom?'Ganz zeigen':'Zoom'}</button><button class="vw-btn" data-v="close" aria-label="Schließen">${ICON.x}</button></div>
+  <div class="vw-img${zoom?' zoom':''}" id="vwImg"><img id="vwPic" src="${t.src||''}" alt="${esc(m.name)}">${m.kind==='video'?'<span class="vw-badge">Video · Standbild</span>':''}</div>
+  <div class="vw-info"><div class="vw-state ${on?'del':'keep'}">${on?'Kommt in den Papierkorb':'Wird behalten'}</div>
+  <p>${fmtDate(iso(d))} · ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())} · ${m.w&&m.h?`${m.w}×${m.h} · `:''}${fmtB(m.size)}</p><p class="vw-sub">${esc((m.path||m.bucket||'').replace(/\/$/,''))} · ${esc(m.name)}</p>
+  ${group&&sp!=null?`<div class="vw-sharp"><span>Schärfe</span><span class="vw-meter"><i style="width:${sp}%"></i></span><b>${sp===100?'schärfstes':sp+' %'}</b></div>`:''}</div>
+  <div class="vw-bar"><button class="vw-btn" data-v="prev" ${i?'':'disabled'} aria-label="Vorheriges">${ICON.left}</button><button class="vw-btn vw-main ${on?'':'del'}" data-v="toggle">${on?'Doch behalten':'Zum Löschen markieren'}</button><button class="vw-btn" data-v="next" ${i<list.length-1?'':'disabled'} aria-label="Nächstes">${ICON.right}</button>${group?'<button class="vw-btn vw-best" data-v="best">Nur dieses behalten</button>':''}</div></div>`;
+  const pic=host.querySelector('#vwPic');const full=new Image();full.onload=()=>{if(list[i]===m)pic.src=full.src};
+  full.onerror=()=>{AR().preview({id:m.id,kind:m.kind,size:1600}).then(r=>{if(list[i]===m&&r&&r.src)pic.src=r.src}).catch(()=>{})};
+  try{if(m.kind==='video'||!window.Capacitor||!Capacitor.convertFileSrc)throw 0;full.src=Capacitor.convertFileSrc(contentUri(m))}catch(e){full.onerror()}};
+ const close=()=>{host.innerHTML='';changed()};
+ host.onclick=e=>{const b=e.target.closest('[data-v]');if(!b)return;const v=b.dataset.v,k=mkey(list[i]);
+  if(v==='close')return close();if(v==='prev'&&i>0){i--;zoom=false}if(v==='next'&&i<list.length-1){i++;zoom=false}if(v==='zoom')zoom=!zoom;
+  if(v==='toggle'){sel.has(k)?sel.delete(k):sel.add(k);changed()}if(v==='best'){list.forEach(m=>sel.add(mkey(m)));sel.delete(k);changed();toast('Die anderen sind markiert. Gelöscht wird erst, wenn du unten bestätigst.')}draw()};
+ let x0=null;host.ontouchstart=e=>{if(zoom)return;x0=e.touches[0].clientX};host.ontouchend=e=>{if(x0===null)return;const dx=e.changedTouches[0].clientX-x0;x0=null;if(Math.abs(dx)>60){if(dx<0&&i<list.length-1)i++;else if(dx>0&&i>0)i--;else return;draw()}};
+ draw()}
+function clViewerOpen(){const h=document.getElementById('viewerHost');return!!(h&&h.innerHTML)}
+function clViewerClose(){const b=document.querySelector('#viewerHost [data-v="close"]');b&&b.click()}
 async function clGroupSheet(title,info,groups){const all=groups.flat();await clThumbs(all);CL.busy='';render();const sel=new Set(groups.flatMap(g=>g.slice(1).map(mkey)));const by={};all.forEach(m=>by[mkey(m)]=m);
- sheet(`<h2>${esc(title)}</h2><p class="small muted">${esc(info)}</p><div class="stack">${groups.map(g=>`<div class="cl-group"><p class="small muted">${dRange(g[0].taken,g[g.length-1].taken)} · ${nD(g.length)} · je ${fmtB(g[0].size)}</p><div class="cl-grid">${g.map((m,i)=>clCell(m,i>0,i===0?'behalten':'')).join('')}</div></div>`).join('')}</div>
- <div class="sheet-foot"><button class="btn pri block" id="clGo"></button></div>`,s=>{const go=s.querySelector('#clGo');const upd=()=>{const l=[...sel].map(k=>by[k]);go.textContent=l.length?`${l.length} in den Papierkorb (${fmtB(sumB(l))})`:'Nichts ausgewählt';go.disabled=!l.length};upd();clPick(s,sel,upd);
+ sheet(`<h2>${esc(title)}</h2><p class="small muted">${esc(info)}</p><div class="stack">${groups.map(g=>`<div class="cl-group"><p class="small muted">${dRange(g[0].taken,g[g.length-1].taken)} · ${nD(g.length)} · je ${fmtB(g[0].size)}</p><div class="cl-grid">${g.map((m,i)=>clCell(m,i>0,'behalten')).join('')}</div></div>`).join('')}</div>
+ <div class="sheet-foot"><button class="btn pri block" id="clGo"></button></div>`,s=>{const go=s.querySelector('#clGo');const upd=()=>{const l=[...sel].map(k=>by[k]);go.textContent=l.length?`${l.length} in den Papierkorb (${fmtB(sumB(l))})`:'Nichts ausgewählt';go.disabled=!l.length};upd();clPick(s,sel,upd,k=>{const g=groups.find(g=>g.some(m=>mkey(m)===k));return g&&{list:g,group:true}});
   go.onclick=async()=>{const l=[...sel].map(k=>by[k]);if(await clTrashMedia(l)){closeSheet();render()}}})}
 async function clListSheet(title,list,preselect){let shown=Math.min(list.length,60);const sel=new Set(preselect?list.map(mkey):[]);const by={};list.forEach(m=>by[mkey(m)]=m);await clThumbs(list.slice(0,shown));CL.busy='';render();
- sheet(`<h2>${esc(title)}</h2><p class="small muted">${nD(list.length)} · ${fmtB(sumB(list))}. Tippe an, was weg kann. Markierte kommen in den Papierkorb.</p><div class="row"><button class="btn sm" id="clAll">Alle auswählen</button><button class="btn sm ghost" id="clNone">Keine</button></div><div class="cl-grid" id="clGrid">${list.slice(0,shown).map(m=>clCell(m,sel.has(mkey(m)),m.kind==='video'||m.size>20e6?fmtB(m.size):'')).join('')}</div>${list.length>shown?'<button class="btn block ghost" id="clMore">Mehr laden</button>':''}<div class="sheet-foot"><button class="btn pri block" id="clGo"></button></div>`,s=>{
- const go=s.querySelector('#clGo');const upd=()=>{const l=[...sel].map(k=>by[k]);go.textContent=l.length?`${l.length} in den Papierkorb (${fmtB(sumB(l))})`:'Nichts ausgewählt';go.disabled=!l.length};upd();clPick(s,sel,upd);
+ sheet(`<h2>${esc(title)}</h2><p class="small muted">${nD(list.length)} · ${fmtB(sumB(list))}. Tippe aufs Bild für die große Ansicht, auf den Kreis zum Auswählen. Markierte kommen in den Papierkorb.</p><div class="row"><button class="btn sm" id="clAll">Alle auswählen</button><button class="btn sm ghost" id="clNone">Keine</button></div><div class="cl-grid" id="clGrid">${list.slice(0,shown).map(m=>clCell(m,sel.has(mkey(m)),m.kind==='video'||m.size>20e6?fmtB(m.size):'')).join('')}</div>${list.length>shown?'<button class="btn block ghost" id="clMore">Mehr laden</button>':''}<div class="sheet-foot"><button class="btn pri block" id="clGo"></button></div>`,s=>{
+ const go=s.querySelector('#clGo');const upd=()=>{const l=[...sel].map(k=>by[k]);go.textContent=l.length?`${l.length} in den Papierkorb (${fmtB(sumB(l))})`:'Nichts ausgewählt';go.disabled=!l.length};upd();clPick(s,sel,upd,()=>({list:list.slice(0,shown),group:false}));
  const redraw=()=>{s.querySelector('#clGrid').innerHTML=list.slice(0,shown).map(m=>clCell(m,sel.has(mkey(m)),m.kind==='video'||m.size>20e6?fmtB(m.size):'')).join('');upd()};
  s.querySelector('#clAll').onclick=()=>{list.forEach(m=>sel.add(mkey(m)));redraw()};s.querySelector('#clNone').onclick=()=>{sel.clear();redraw()};
  const more=s.querySelector('#clMore');more&&(more.onclick=async()=>{shown=Math.min(list.length,shown+60);more.textContent='Lade …';await clThumbs(list.slice(0,shown));redraw();if(shown>=list.length)more.remove();else more.textContent='Mehr laden'});
@@ -150,7 +176,7 @@ async function clTrashSheet(){await clRun('Öffne Papierkorb …',async()=>{cons
  if(!list.length)return toast('Der Papierkorb ist leer.');const sel=new Set(list.map(mkey));const by={};list.forEach(m=>by[mkey(m)]=m);
  sheet(`<h2>Papierkorb</h2><p class="small muted">${nD(list.length)} · ${fmtB(sumB(list))}. Android löscht sie nach 30 Tagen automatisch. Markiert ist alles. Du kannst zurückholen oder sofort endgültig löschen.</p><div class="cl-grid">${list.slice(0,120).map(m=>clCell(m,true,'')).join('')}</div>${list.length>120?`<p class="small muted">Und ${list.length-120} weitere, die beim Löschen mit dabei sind.</p>`:''}
  <div class="sheet-foot stack"><button class="btn block" id="clBack"></button><button class="btn block danger" id="clDel"></button></div>`,s=>{const b=s.querySelector('#clBack'),d=s.querySelector('#clDel');
-  const pickd=()=>list.filter((m,i)=>i>=120||sel.has(mkey(m)));const upd=()=>{const l=pickd();b.textContent=`${l.length} zurückholen`;d.textContent=`${l.length} endgültig löschen (${fmtB(sumB(l))})`;b.disabled=d.disabled=!l.length};upd();clPick(s,sel,upd);
+  const pickd=()=>list.filter((m,i)=>i>=120||sel.has(mkey(m)));const upd=()=>{const l=pickd();b.textContent=`${l.length} zurückholen`;d.textContent=`${l.length} endgültig löschen (${fmtB(sumB(l))})`;b.disabled=d.disabled=!l.length};upd();clPick(s,sel,upd,()=>({list:list.slice(0,120),group:false}));
   b.onclick=async()=>{const l=pickd();const r=await AR().trashMedia({items:l.map(m=>({id:m.id,kind:m.kind})),restore:true});if(r&&r.ok){closeSheet();toast(`${l.length} zurückgeholt`);CL.media=null;CL.trash=null;await clRun('Aktualisiere …',clScanMedia)}else toast('Abgebrochen.')};
   d.onclick=async()=>{const l=pickd();const r=await AR().deleteMedia({items:l.map(m=>({id:m.id,kind:m.kind}))});if(r&&r.ok){closeSheet();CL.trash=null;stamp('Platz frei');toast(`${fmtB(sumB(l))} freigegeben`);render()}else toast('Abgebrochen.')}})}
 function clFileRow(x,i){const f=x.f;return`<label class="li" style="cursor:pointer"><input type="checkbox" data-fi="${i}" ${x.on?'checked':''} style="width:22px;height:22px;accent-color:var(--crit);flex:none"><div class="grow"><p style="overflow-wrap:anywhere">${esc(f.name)}</p><p class="small muted" style="overflow-wrap:anywhere">${esc(f.path.slice(0,f.path.length-f.name.length).replace(/\/$/,'')||'/')} · ${fmtB(f.size)} · ${fmtDate(iso(new Date(f.mod)))}${x.note?` · <b>${esc(x.note)}</b>`:''}</p></div></label>`}

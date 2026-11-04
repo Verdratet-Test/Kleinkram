@@ -260,6 +260,7 @@ public class AufraeumenPlugin extends Plugin {
                     if (bmp == null) continue;
                     JSObject o = new JSObject();
                     o.put("dhash", dHash(bmp));
+                    o.put("sharp", sharpness(bmp));
                     ByteArrayOutputStream bo = new ByteArrayOutputStream();
                     bmp.compress(Bitmap.CompressFormat.JPEG, 70, bo);
                     o.put("src", "data:image/jpeg;base64," + Base64.encodeToString(bo.toByteArray(), Base64.NO_WRAP));
@@ -272,6 +273,65 @@ public class AufraeumenPlugin extends Plugin {
             res.put("thumbs", r);
             call.resolve(res);
         }).start();
+    }
+
+    /** Große Vorschau (z. B. 1600 px) als JPEG – Ersatz, falls das Original nicht direkt angezeigt werden kann. */
+    @PluginMethod
+    public void preview(PluginCall call) {
+        final JSObject it = new JSObject();
+        it.put("id", call.getData().optLong("id"));
+        it.put("kind", call.getString("kind", "image"));
+        final int px = call.getInt("size", 1600);
+        new Thread(() -> {
+            try {
+                Bitmap bmp = loadThumb(getContext().getContentResolver(), it, px);
+                if (bmp == null) {
+                    call.reject("Keine Vorschau");
+                    return;
+                }
+                ByteArrayOutputStream bo = new ByteArrayOutputStream();
+                bmp.compress(Bitmap.CompressFormat.JPEG, 85, bo);
+                JSObject r = new JSObject();
+                r.put("src", "data:image/jpeg;base64," + Base64.encodeToString(bo.toByteArray(), Base64.NO_WRAP));
+                r.put("w", bmp.getWidth());
+                r.put("h", bmp.getHeight());
+                bmp.recycle();
+                call.resolve(r);
+            } catch (Exception e) {
+                call.reject("Vorschau ging nicht: " + e.getMessage());
+            }
+        }).start();
+    }
+
+    /** Schärfe-Maß: Varianz des Laplace-Filters auf Graustufen (höher = schärfer). */
+    private static double sharpness(Bitmap src) {
+        Bitmap b = src;
+        int w = b.getWidth(), h = b.getHeight();
+        if (w > 320 || h > 320) {
+            float sc = 320f / Math.max(w, h);
+            b = Bitmap.createScaledBitmap(src, Math.max(3, Math.round(w * sc)), Math.max(3, Math.round(h * sc)), true);
+            w = b.getWidth();
+            h = b.getHeight();
+        }
+        int[] px = new int[w * h];
+        b.getPixels(px, 0, w, 0, 0, w, h);
+        int[] g = new int[w * h];
+        for (int i = 0; i < px.length; i++) g[i] = (Color.red(px[i]) * 30 + Color.green(px[i]) * 59 + Color.blue(px[i]) * 11) / 100;
+        double sum = 0, sum2 = 0;
+        long n = 0;
+        for (int y = 1; y < h - 1; y++) {
+            for (int x = 1; x < w - 1; x++) {
+                int i = y * w + x;
+                int lap = 4 * g[i] - g[i - 1] - g[i + 1] - g[i - w] - g[i + w];
+                sum += lap;
+                sum2 += (double) lap * lap;
+                n++;
+            }
+        }
+        if (b != src) b.recycle();
+        if (n == 0) return 0;
+        double mean = sum / n;
+        return Math.round((sum2 / n - mean * mean) * 10) / 10.0;
     }
 
     @SuppressWarnings("deprecation")
