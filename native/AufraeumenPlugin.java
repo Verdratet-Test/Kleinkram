@@ -9,6 +9,8 @@ import android.content.ContentValues;
 import android.content.Intent;
 import android.database.Cursor;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.ImageDecoder;
 import android.graphics.Color;
 import android.media.MediaScannerConnection;
 import android.net.Uri;
@@ -40,6 +42,7 @@ import org.json.JSONObject;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.security.MessageDigest;
 import java.util.ArrayList;
@@ -68,6 +71,7 @@ public class AufraeumenPlugin extends Plugin {
             new ActivityResultContracts.StartIntentSenderForResult(),
             this::onSenderResult
         );
+        new Thread(this::cleanPreviewCache).start();
     }
 
     private void onSenderResult(ActivityResult result) {
@@ -275,32 +279,98 @@ public class AufraeumenPlugin extends Plugin {
         }).start();
     }
 
-    /** Große Vorschau (z. B. 1600 px) als JPEG – Ersatz, falls das Original nicht direkt angezeigt werden kann. */
+    /**
+     * Große Vorschau in echter Qualität: Das Originalbild wird auf max. "size" Pixel
+     * (lange Seite) dekodiert, richtig gedreht und als JPEG im App-Cache abgelegt.
+     * Rückgabe: "uri" (file://…) zum Anzeigen; mit inline=true zusätzlich "src" als data-URL.
+     */
     @PluginMethod
     public void preview(PluginCall call) {
         final JSObject it = new JSObject();
-        it.put("id", call.getData().optLong("id"));
-        it.put("kind", call.getString("kind", "image"));
-        final int px = call.getInt("size", 1600);
+        final long id = call.getData().optLong("id");
+        final String kind = call.getString("kind", "image");
+        it.put("id", id);
+        it.put("kind", kind);
+        final int px = Math.max(512, Math.min(4096, call.getInt("size", 2048)));
+        final boolean inline = call.getBoolean("inline", false);
         new Thread(() -> {
             try {
-                Bitmap bmp = loadThumb(getContext().getContentResolver(), it, px);
-                if (bmp == null) {
-                    call.reject("Keine Vorschau");
-                    return;
+                File dir = new File(getContext().getCacheDir(), "vorschau");
+                if (!dir.isDirectory()) dir.mkdirs();
+                File f = new File(dir, kind + "_" + id + "_" + px + ".jpg");
+                int w = 0, h = 0;
+                if (!f.isFile() || f.length() == 0) {
+                    Bitmap bmp = decodeLarge(getContext().getContentResolver(), it, px);
+                    if (bmp == null) {
+                        call.reject("Bild ließ sich nicht öffnen");
+                        return;
+                    }
+                    w = bmp.getWidth();
+                    h = bmp.getHeight();
+                    FileOutputStream out = new FileOutputStream(f);
+                    try {
+                        bmp.compress(Bitmap.CompressFormat.JPEG, 90, out);
+                    } finally {
+                        out.close();
+                    }
+                    bmp.recycle();
                 }
-                ByteArrayOutputStream bo = new ByteArrayOutputStream();
-                bmp.compress(Bitmap.CompressFormat.JPEG, 85, bo);
                 JSObject r = new JSObject();
-                r.put("src", "data:image/jpeg;base64," + Base64.encodeToString(bo.toByteArray(), Base64.NO_WRAP));
-                r.put("w", bmp.getWidth());
-                r.put("h", bmp.getHeight());
-                bmp.recycle();
+                r.put("uri", Uri.fromFile(f).toString());
+                r.put("w", w);
+                r.put("h", h);
+                if (inline) {
+                    FileInputStream in = new FileInputStream(f);
+                    ByteArrayOutputStream bo = new ByteArrayOutputStream();
+                    byte[] buf = new byte[65536];
+                    int n;
+                    while ((n = in.read(buf)) > 0) bo.write(buf, 0, n);
+                    in.close();
+                    r.put("src", "data:image/jpeg;base64," + Base64.encodeToString(bo.toByteArray(), Base64.NO_WRAP));
+                }
                 call.resolve(r);
-            } catch (Exception e) {
+            } catch (Throwable e) {
                 call.reject("Vorschau ging nicht: " + e.getMessage());
             }
         }).start();
+    }
+
+    private Bitmap decodeLarge(ContentResolver cr, JSONObject it, final int max) throws Exception {
+        if ("video".equals(it.optString("kind"))) return loadThumb(cr, it, max);
+        Uri u = itemUri(it);
+        if (Build.VERSION.SDK_INT >= 28) {
+            ImageDecoder.Source src = ImageDecoder.createSource(cr, u);
+            return ImageDecoder.decodeBitmap(src, (decoder, info, source) -> {
+                int w = info.getSize().getWidth(), h = info.getSize().getHeight();
+                float sc = Math.min(1f, (float) max / Math.max(w, h));
+                decoder.setTargetSize(Math.max(1, Math.round(w * sc)), Math.max(1, Math.round(h * sc)));
+                decoder.setAllocator(ImageDecoder.ALLOCATOR_SOFTWARE);
+            });
+        }
+        BitmapFactory.Options o = new BitmapFactory.Options();
+        o.inJustDecodeBounds = true;
+        InputStream in = cr.openInputStream(u);
+        if (in == null) return null;
+        BitmapFactory.decodeStream(in, null, o);
+        in.close();
+        int sample = 1;
+        while (Math.max(o.outWidth, o.outHeight) / (sample * 2) >= max) sample *= 2;
+        BitmapFactory.Options o2 = new BitmapFactory.Options();
+        o2.inSampleSize = sample;
+        in = cr.openInputStream(u);
+        if (in == null) return null;
+        Bitmap b = BitmapFactory.decodeStream(in, null, o2);
+        in.close();
+        return b;
+    }
+
+    /** Alte Vorschauen (älter als 1 Tag) aus dem Cache entfernen. */
+    private void cleanPreviewCache() {
+        File dir = new File(getContext().getCacheDir(), "vorschau");
+        File[] list = dir.listFiles();
+        if (list == null) return;
+        long limit = System.currentTimeMillis() - 24L * 3600 * 1000;
+        for (File f : list) if (f.lastModified() < limit) f.delete();
     }
 
     /** Schärfe-Maß: Varianz des Laplace-Filters auf Graustufen (höher = schärfer). */

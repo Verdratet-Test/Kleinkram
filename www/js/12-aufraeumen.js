@@ -35,7 +35,7 @@ async function clFindDupMedia(){const by={};CL.media.forEach(m=>{const k=m.kind+
  const g={};cand.forEach(m=>{const h=hs[mkey(m)];if(h)(g[h]=g[h]||[]).push(m)});
  CL.dupM=Object.values(g).filter(x=>x.length>1).map(x=>x.sort((a,b)=>keepScore(a)-keepScore(b)))}
 async function clThumbs(list){const need=list.filter(m=>!CL.thumbs[mkey(m)]);
- for(let i=0;i<need.length;i+=40){if(need.length>40)clBusy(`Lade Vorschaubilder … ${Math.min(i+40,need.length)} von ${need.length}`);const r=await AR().thumbs({items:need.slice(i,i+40).map(m=>({id:m.id,kind:m.kind})),size:200});Object.assign(CL.thumbs,r.thumbs||{})}}
+ for(let i=0;i<need.length;i+=40){if(need.length>40)clBusy(`Lade Vorschaubilder … ${Math.min(i+40,need.length)} von ${need.length}`);const r=await AR().thumbs({items:need.slice(i,i+40).map(m=>({id:m.id,kind:m.kind})),size:256});Object.assign(CL.thumbs,r.thumbs||{})}}
 async function clFindSimilar(){const im=CL.media.filter(m=>m.kind==='image'&&!isShot(m)).sort((a,b)=>a.taken-b.taken),runs=[];let cur=[];
  for(const m of im){if(cur.length&&(m.taken-cur[cur.length-1].taken>8000||m.bucket!==cur[0].bucket)){if(cur.length>1)runs.push(cur);cur=[]}cur.push(m)}if(cur.length>1)runs.push(cur);
  const use=runs.slice(-200);await clThumbs(use.flat().slice(-1000));const out=[];
@@ -133,25 +133,30 @@ function clPick(s,sel,onChange,ctx){s.addEventListener('click',e=>{const c=e.tar
  if(e.target.closest('[data-open]')){const g=ctx(k);if(g)clViewer(g.list,g.list.findIndex(m=>mkey(m)===k),sel,()=>{clSync(s,sel);onChange()},g.group)}})}
 
 /* Große Vorschau zum Kontrollieren */
-const contentUri=m=>`content://media/external/${m.kind==='video'?'video':'images'}/media/${m.id}`;
 function clViewer(list,i,sel,changed,group){const host=document.getElementById('viewerHost')||document.body.appendChild(Object.assign(document.createElement('div'),{id:'viewerHost'}));let zoom=false;
  const maxSharp=Math.max(1,...list.map(m=>(CL.thumbs[mkey(m)]||{}).sharp||0));
  const draw=()=>{const m=list[i],k=mkey(m),t=CL.thumbs[k]||{},on=sel.has(k),d=new Date(m.taken),sp=t.sharp!=null?Math.round(t.sharp/maxSharp*100):null;
   host.innerHTML=`<div class="vw" role="dialog" aria-modal="true" aria-label="Vorschau"><div class="vw-top"><span class="vw-pos">${i+1} von ${list.length}</span><span class="grow"></span><button class="vw-btn" data-v="zoom">${zoom?'Ganz zeigen':'Zoom'}</button><button class="vw-btn" data-v="close" aria-label="Schließen">${ICON.x}</button></div>
-  <div class="vw-img${zoom?' zoom':''}" id="vwImg"><img id="vwPic" src="${t.src||''}" alt="${esc(m.name)}">${m.kind==='video'?'<span class="vw-badge">Video · Standbild</span>':''}</div>
+  <div class="vw-img${zoom?' zoom':''}" id="vwImg"><img id="vwPic" src="${(CL.prev[mkey(m)+(zoom?'@z':'')]||CL.prev[mkey(m)]||t.src||'')}" alt="${esc(m.name)}"><span class="vw-load" id="vwLoad" ${CL.prev[mkey(m)+(zoom?'@z':'')]?'hidden':''}>Lade volle Qualität …</span>${m.kind==='video'?'<span class="vw-badge">Video · Standbild</span>':''}</div>
   <div class="vw-info"><div class="vw-state ${on?'del':'keep'}">${on?'Kommt in den Papierkorb':'Wird behalten'}</div>
   <p>${fmtDate(iso(d))} · ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())} · ${m.w&&m.h?`${m.w}×${m.h} · `:''}${fmtB(m.size)}</p><p class="vw-sub">${esc((m.path||m.bucket||'').replace(/\/$/,''))} · ${esc(m.name)}</p>
   ${group&&sp!=null?`<div class="vw-sharp"><span>Schärfe</span><span class="vw-meter"><i style="width:${sp}%"></i></span><b>${sp===100?'schärfstes':sp+' %'}</b></div>`:''}</div>
   <div class="vw-bar"><button class="vw-btn" data-v="prev" ${i?'':'disabled'} aria-label="Vorheriges">${ICON.left}</button><button class="vw-btn vw-main ${on?'':'del'}" data-v="toggle">${on?'Doch behalten':'Zum Löschen markieren'}</button><button class="vw-btn" data-v="next" ${i<list.length-1?'':'disabled'} aria-label="Nächstes">${ICON.right}</button>${group?'<button class="vw-btn vw-best" data-v="best">Nur dieses behalten</button>':''}</div></div>`;
-  const pic=host.querySelector('#vwPic');const full=new Image();full.onload=()=>{if(list[i]===m)pic.src=full.src};
-  full.onerror=()=>{AR().preview({id:m.id,kind:m.kind,size:1600}).then(r=>{if(list[i]===m&&r&&r.src)pic.src=r.src}).catch(()=>{})};
-  try{if(m.kind==='video'||!window.Capacitor||!Capacitor.convertFileSrc)throw 0;full.src=Capacitor.convertFileSrc(contentUri(m))}catch(e){full.onerror()}};
+  clLoadFull(m,zoom?3200:2048,host,()=>list[i]===m);if(!zoom)[list[i+1],list[i-1]].filter(Boolean).forEach(n=>clFetchPreview(n,2048).catch(()=>{}))};
  const close=()=>{host.innerHTML='';changed()};
  host.onclick=e=>{const b=e.target.closest('[data-v]');if(!b)return;const v=b.dataset.v,k=mkey(list[i]);
   if(v==='close')return close();if(v==='prev'&&i>0){i--;zoom=false}if(v==='next'&&i<list.length-1){i++;zoom=false}if(v==='zoom')zoom=!zoom;
   if(v==='toggle'){sel.has(k)?sel.delete(k):sel.add(k);changed()}if(v==='best'){list.forEach(m=>sel.add(mkey(m)));sel.delete(k);changed();toast('Die anderen sind markiert. Gelöscht wird erst, wenn du unten bestätigst.')}draw()};
  let x0=null;host.ontouchstart=e=>{if(zoom)return;x0=e.touches[0].clientX};host.ontouchend=e=>{if(x0===null)return;const dx=e.changedTouches[0].clientX-x0;x0=null;if(Math.abs(dx)>60){if(dx<0&&i<list.length-1)i++;else if(dx>0&&i>0)i--;else return;draw()}};
  draw()}
+CL.prev={};CL.prevOrder=[];
+async function clFetchPreview(m,size){const key=mkey(m)+(size>2048?'@z':'');if(CL.prev[key])return CL.prev[key];
+ const r=await AR().preview({id:m.id,kind:m.kind,size});let url=r&&r.uri&&window.Capacitor&&Capacitor.convertFileSrc?Capacitor.convertFileSrc(r.uri):'';
+ const ok=url&&await new Promise(res=>{const im=new Image();im.onload=()=>res(true);im.onerror=()=>res(false);im.src=url});
+ if(!ok){const r2=await AR().preview({id:m.id,kind:m.kind,size,inline:true});url=r2&&r2.src}
+ if(!url)throw new Error('keine Vorschau');CL.prev[key]=url;CL.prevOrder.push(key);while(CL.prevOrder.length>24)delete CL.prev[CL.prevOrder.shift()];return url}
+function clLoadFull(m,size,host,still){const pic=host.querySelector('#vwPic'),ld=host.querySelector('#vwLoad');
+ clFetchPreview(m,size).then(url=>{if(!still())return;pic.src=url;ld&&(ld.hidden=true)}).catch(e=>{if(still()&&ld){ld.textContent='Volle Qualität nicht verfügbar: '+(e&&e.message||e)}})}
 function clViewerOpen(){const h=document.getElementById('viewerHost');return!!(h&&h.innerHTML)}
 function clViewerClose(){const b=document.querySelector('#viewerHost [data-v="close"]');b&&b.click()}
 async function clGroupSheet(title,info,groups){const all=groups.flat();await clThumbs(all);CL.busy='';render();const sel=new Set(groups.flatMap(g=>g.slice(1).map(mkey)));const by={};all.forEach(m=>by[mkey(m)]=m);
