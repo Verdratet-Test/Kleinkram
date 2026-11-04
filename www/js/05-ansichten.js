@@ -87,7 +87,8 @@ function vAblage(){const y=UI.year;const years=[...new Set([new Date().getFullYe
  if(UI.abl==='haus')return head('Ablage',`${objs().length} Objekt${objs().length===1?'':'e'}`)+seg+vHaus();
  if(UI.abl==='garantie')return head('Ablage',`${(S.warranties||[]).length} Garantien`)+seg+vGarantie();
  let h=head('Ablage',`${S.docs.length} Dokumente`)+seg+`<div class="scan-row"><label class="scan-btn pri" for="scanInput">${ICON.cam}<span>Rechnung scannen</span><small>Foto → Überweisungsdaten + GiroCode</small></label><button class="scan-btn" data-act="newDoc">${ICON.doc}<span>Dokument ablegen</span><small>Brief, Bescheid, Vertrag</small></button></div>
- <input type="file" id="scanInput" accept="image/*" capture="environment" hidden>
+ <label class="scan-gal" for="scanInputG">${ICON.gal} Rechnung aus der Galerie wählen</label>
+ <input type="file" id="scanInput" accept="image/*" capture="environment" hidden><input type="file" id="scanInputG" accept="image/*" hidden>
  <button class="btn block ghost" data-act="pasteInv" style="margin-top:8px">Rechnungstext einfügen statt Foto</button>
  <div class="folders" style="margin-top:18px" role="tablist" aria-label="Jahresordner">${years.map(Y=>`<button class="folder${Y===y?' on':''}" data-act="year" data-y="${Y}">${Y}</button>`).join('')}</div>`;
  h+=reg(`Steuer ${y}`,T.count,`<div class="tax"><span>Handwerker-Arbeitskosten</span><span class="sum">${eur(T.hw)}</span><span>Haushaltsnahe Dienste (Arbeitskosten)</span><span class="sum">${eur(T.hh)}</span>${T.wk?`<span>Werbungskosten gesammelt</span><span class="sum">${eur(T.wk)}</span>`:''}${T.vm.map(x=>`<span>Vermietung ${esc(x.o.name)} (Anlage V)</span><span class="sum">${eur(x.sum)}</span>`).join('')}

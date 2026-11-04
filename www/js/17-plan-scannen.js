@@ -127,12 +127,13 @@ async function plRecognize(cv,onProg){
  return lines.map(l=>({text:l.text,x:l.bbox.x0,y:l.bbox.y0,w:l.bbox.x1-l.bbox.x0,h:l.bbox.y1-l.bbox.y0}))}
 
 /* ---------- Ablauf & Prüfansicht ---------- */
-const PLIN='<input type="file" id="planInput" accept="image/*" hidden>';
+const PLIN='<input type="file" id="planInput" accept="image/*" capture="environment" hidden><input type="file" id="planInputG" accept="image/*" hidden>';
+const PLBTN=`<div class="row pic-row"><label class="btn pri grow" for="planInput">${ICON.cam} Foto aufnehmen</label><label class="btn grow" for="planInputG">${ICON.gal} Aus Galerie</label></div>`;
 function planInfoSheet(){sheet(`<h2>Plan scannen</h2>
  <p class="muted">Fotografier einen Dienst-, Schicht- oder Bereitschaftsplan. Kleinkram sucht deine Zeilen heraus und trägt sie als Termine oder Aufgaben ein.</p>
  <label class="f">Dein Name im Plan (oder Kürzel)<input class="inp" id="plN0" value="${esc(S.set.planName||'')}" placeholder="z. B. Hatipoglu" autocapitalize="words"></label>
  <p class="small muted">Deine Zeilen werden über den Namen gefunden. Zusätzlich zählen markierte Zeilen: Kuli-Kreis oder Textmarker (gelb, grün, blau, pink). Mehrere Namen mit Komma trennen.</p>
- <label class="btn pri block" for="planInput">${ICON.cam} Foto aufnehmen oder wählen</label>${PLIN}
+ ${PLBTN}${PLIN}
  <p class="small muted">Tipp: ganze Tabelle, gerade von oben, gutes Licht. Das Foto bleibt auf deinem Handy.</p>`,s=>{const n=s.querySelector('#plN0');n.onchange=()=>{S.set.planName=n.value.trim();save()}})}
 async function planScan(file){const nm=document.getElementById('plN0');if(nm){S.set.planName=nm.value.trim();save()}
  let im;try{im=await loadImg(file)}catch(e){toast('Das Bild ließ sich nicht öffnen.');return}
@@ -141,7 +142,7 @@ async function planScan(file){const nm=document.getElementById('plN0');if(nm){S.
  let lines;try{lines=await plRecognize(cv,(msg,pr)=>{const m=$('#oM'),b=$('#oB');if(m)m.textContent=msg;if(b)b.style.width=Math.max(3,Math.round(pr*100))+'%'})}catch(e){if(stop)return;closeSheet();toast(CAP?'Texterkennung fehlgeschlagen.':'Texterkennung konnte nicht geladen werden (beim ersten Mal Internet nötig).');return}
  if(stop)return;
  const A=plAnalyse(lines,cv.width,cv.height);plMarks(cv,A);
- if(!A.plan.length){sheet(`<h2>Keine Termine gefunden</h2><p class="muted">Auf dem Foto war keine Tabelle mit Datum zu erkennen.</p><p class="small muted">Tipp: näher ran, gerade von oben, ohne Schatten. Die Spalte mit dem Datum muss gut lesbar sein.</p><label class="btn pri block" for="planInput">Neues Foto</label>${PLIN}`);return}
+ if(!A.plan.length){sheet(`<h2>Keine Termine gefunden</h2><p class="muted">Auf dem Foto war keine Tabelle mit Datum zu erkennen.</p><p class="small muted">Tipp: näher ran, gerade von oben, ohne Schatten. Die Spalte mit dem Datum muss gut lesbar sein.</p>${PLBTN}${PLIN}`);return}
  const titles=S.set.planTitles||{};
  PL={cv,A,img:cv.toDataURL('image/jpeg',.8),title:titles[A.head]||plTitleFrom(A.head),showAll:false};
  plSelect();planReview()}
@@ -190,4 +191,4 @@ function plSave(){const A=PL.A,title=val('plT')||PL.title,kind=val('plK')||'term
  sheet(`<h2>Eingetragen</h2><p class="muted">${sel.length} ${kind==='aufgabe'?'Aufgaben':'Termine'} „${esc(title)}“, ab ${fmtDate(first)}.</p>${kind==='termin'?`<p class="small muted">Auch im Handy-Kalender (und damit auf der Uhr) haben?</p><button class="btn pri block" data-act="ics">In Handy-Kalender übertragen</button>`:''}<button class="btn block" data-act="close">Fertig</button>`);
  go(kind==='aufgabe'?'aufgaben':'kalender')}
 
-document.addEventListener('change',e=>{if(e.target&&e.target.id==='planInput'){const f=e.target.files[0];e.target.value='';if(f)planScan(f)}});
+document.addEventListener('change',e=>{if(e.target&&(e.target.id==='planInput'||e.target.id==='planInputG')){const f=e.target.files[0];e.target.value='';if(f)planScan(f)}});

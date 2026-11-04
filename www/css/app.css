@@ -106,9 +106,7 @@ p{margin:0}
 /* Aufgaben */
 .task{position:relative;background:var(--paper);border:1px solid var(--line);border-left:5px solid var(--c);border-radius:var(--r);padding:12px 14px;display:flex;flex-direction:column;gap:8px;box-shadow:var(--shadow);cursor:pointer;overflow:hidden}
 .task h3{overflow-wrap:anywhere}
-.task.age-1{background-image:radial-gradient(color-mix(in srgb,var(--dust) 22%,transparent) 1px,transparent 1.2px);background-size:9px 11px}
-.task.age-2{background-image:radial-gradient(color-mix(in srgb,var(--dust) 34%,transparent) 1.2px,transparent 1.4px),radial-gradient(color-mix(in srgb,var(--dust) 22%,transparent) 1px,transparent 1.2px);background-size:8px 9px,13px 7px}
-.task.age-3{border-color:color-mix(in srgb,var(--rust) 55%,var(--line));border-left-color:var(--rust);background-image:radial-gradient(color-mix(in srgb,var(--rust) 26%,transparent) 1.4px,transparent 1.6px),linear-gradient(135deg,color-mix(in srgb,var(--rust) 7%,transparent),transparent 60%);background-size:7px 8px,100% 100%}
+.task.age-3{border-color:color-mix(in srgb,var(--rust) 55%,var(--line));border-left-color:var(--rust)}
 .task.example h3::after{content:"Beispiel";margin-left:8px;font-family:var(--f-body);font-size:.7rem;font-weight:700;color:var(--muted);border:1px dashed var(--muted);border-radius:6px;padding:1px 6px;vertical-align:2px}
 .task-acts{display:flex;gap:8px;flex-wrap:wrap}
 .snow{display:inline-flex;align-items:flex-end;gap:3px;height:16px}
@@ -292,3 +290,7 @@ html.kk-locked body>*:not(#lockScr){visibility:hidden}
 .lock-box{display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;color:var(--ink)}
 .lock-box svg{width:48px;height:48px;color:var(--stamp)}
 .lock-box h2{margin:6px 0 0}
+
+/* Fotos: Kamera oder Galerie */
+.pic-row{gap:8px;flex-wrap:wrap}.pic-row .btn{justify-content:center}
+.scan-gal{display:flex;align-items:center;gap:8px;justify-content:center;margin-top:8px;padding:10px;border-radius:var(--r);border:1px dashed var(--line);color:var(--stamp);font-weight:600;cursor:pointer}

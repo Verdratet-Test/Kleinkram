@@ -5,7 +5,7 @@ function render(){S.contracts=S.contracts||[];syncRecurring();syncContracts();sy
  v.innerHTML=({heute:vHeute,kalender:vKalender,aufgaben:vAufgaben,ablage:vAblage,ich:vIch,aufraeumen:vAufraeumen}[UI.tab]||vHeute)();
  $('#nav').innerHTML=NAV.map(([k,l,p])=>`<button class="${UI.tab===k?'on':''}" data-act="go" data-to="${k}" aria-current="${UI.tab===k?'page':'false'}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${p}</svg>${l}</button>`).join('');
  v.querySelectorAll('img[data-img]').forEach(im=>IDB.get(im.dataset.img).then(src=>{if(src)im.src=src}));
- if(CAP&&UI.tab==='ich')setTimeout(notifStatus,50);const si=$('#scanInput');if(si)si.onchange=e=>{const f=e.target.files[0];e.target.value='';if(f)scanFile(f)};}
+ if(CAP&&UI.tab==='ich')setTimeout(notifStatus,50);onPic(document,'scanInput',scanFile);}
 function go(tab){UI.tab=tab;try{history.replaceState(null,'','#'+tab)}catch(e){}render();window.scrollTo(0,0)}
 
 /* ---------- Sheets ---------- */
@@ -18,6 +18,9 @@ function swipeClose(sh){let y0=null,dy=0,drag=false;const bg=sh.parentElement;
 function closeSheet(){$('#sheetHost').innerHTML='';sheetClose&&sheetClose();sheetClose=null}
 function confirmSheet(title,text,okLabel,onOk,danger){sheet(`<h2>${esc(title)}</h2><p class="muted">${esc(text)}</p><div class="row"><button class="btn grow" data-act="close">Abbrechen</button><button class="btn grow ${danger?'danger':'pri'}" id="cOk">${esc(okLabel)}</button></div>`,s=>s.querySelector('#cOk').onclick=()=>{closeSheet();onOk()})}
 const catSelect=(id,val)=>`<label class="f">Bereich<select class="inp" id="${id}">${Object.keys(CATS).map(c=>`<option value="${c}" ${val===c?'selected':''}>${CATS[c]}${CATHINT[c]?` (${CATHINT[c]})`:''}</option>`).join('')}</select></label>`;
+/* Foto: zwei Wege – Kamera (capture) oder Galerie/Dateien (ohne capture, sonst öffnet Android nur die Kamera) */
+const picBtns=(id,cam,cls)=>`<div class="row pic-row"><label class="btn grow ${cls||''}" for="${id}">${ICON.cam} ${cam||'Foto aufnehmen'}</label><label class="btn grow" for="${id}G">${ICON.gal} Aus Galerie</label></div><input type="file" id="${id}" accept="image/*" capture="environment" hidden><input type="file" id="${id}G" accept="image/*" hidden>`;
+function onPic(root,id,fn){[id,id+'G'].forEach(k=>{const el=root.querySelector('#'+k);if(el)el.onchange=e=>{const f=e.target.files[0];e.target.value='';if(f)fn(f)}})}
 const val=id=>{const e=document.getElementById(id);return e?e.value.trim():''};
 
 /* Schnell eintragen */

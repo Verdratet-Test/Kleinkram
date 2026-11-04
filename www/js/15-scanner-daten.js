@@ -72,7 +72,7 @@ function giroSheet(f,back){const svg=qrSvg(epcPayload(f));
 function docSheet(id){const d=S.docs.find(x=>x.id===id);if(!d)return;if(d.kind==='rechnung'){IDB.get(d.id).then(img=>invoiceSheet({},img,'',d));return}
  IDB.get(d.id).then(img=>sheet(`<h2>${esc(d.title)}</h2>${img?`<img class="preview-img" src="${img}" alt="${esc(d.title)}">`:''}<p class="small muted">${esc(d.note||'')}</p><p class="small muted">Ordner ${d.year}${d.taxType&&d.taxType!=='none'?` · ${esc(TAXT[d.taxType])}`:''}</p><div class="row"><button class="btn grow" data-act="close">Schließen</button><button class="btn danger" id="dX">Löschen</button></div>`,s=>s.querySelector('#dX').onclick=()=>confirmSheet('Dokument löschen?','Es verschwindet von diesem Gerät.','Löschen',()=>{S.docs=S.docs.filter(x=>x.id!==id);IDB.del(id);save();render()},true)))}
 function newDocSheet(pre){pre=pre||{};let img=pre.img||null,raw='',dls=[];const y=new Date().getFullYear();
- sheet(`<h2>Dokument ablegen</h2><label class="btn block" for="dF">${ICON.cam} Foto aufnehmen oder wählen</label><input type="file" id="dF" accept="image/*" capture="environment" hidden><img class="preview-img" id="dI" hidden alt="Vorschau">
+ sheet(`<h2>Dokument ablegen</h2>${picBtns('dF')}<img class="preview-img" id="dI" hidden alt="Vorschau">
  <p class="small muted" id="dO" hidden></p><div id="dDl"></div>
  <details><summary>Text einfügen statt Foto</summary><textarea class="inp" id="dP" placeholder="Text des Briefs einfügen"></textarea><button class="btn sm" id="dPGo">Nach Fristen suchen</button></details>
  <label class="f">Titel<input class="inp" id="dT" placeholder="z. B. Steuerbescheid 2025"></label><label class="f">Notiz<input class="inp" id="dN" placeholder="optional"></label>
@@ -83,9 +83,9 @@ function newDocSheet(pre){pre=pre||{};let img=pre.img||null,raw='',dls=[];const 
  const analyse=txt=>{raw=String(txt||'').slice(0,6000);dls=findDeadlines(raw);showDl()};
  s.querySelector('#dPGo').onclick=()=>analyse(val('dP'));
  if(pre.img||pre.text){const p=s.querySelector('#dI');if(img){p.src=img;p.hidden=false}if(pre.title)s.querySelector('#dT').value=pre.title;analyse(pre.text||'')}
- s.querySelector('#dF').onchange=async e=>{const f=e.target.files[0];if(!f)return;let im;try{im=await loadImg(f);img=canvasOf(im,1400).toDataURL('image/jpeg',.72);const p=s.querySelector('#dI');p.src=img;p.hidden=false}catch(er){toast('Bild ließ sich nicht öffnen.');return}
+ onPic(s,'dF',async f=>{let im;try{im=await loadImg(f);img=canvasOf(im,1400).toDataURL('image/jpeg',.72);const p=s.querySelector('#dI');p.src=img;p.hidden=false}catch(er){toast('Bild ließ sich nicht öffnen.');return}
   if(navigator.onLine===false&&!S.ocrReady)return;const o=s.querySelector('#dO');o.hidden=false;o.textContent='Lese den Brief und suche Fristen …';
-  try{const tx=await ocr(im,(m,pr)=>{o.textContent=`${m} ${Math.round(pr*100)} %`});o.hidden=true;analyse(tx)}catch(er){o.textContent='Texterkennung ging gerade nicht. Du kannst den Text auch einfügen.'}};
+  try{const tx=await ocr(im,(m,pr)=>{o.textContent=`${m} ${Math.round(pr*100)} %`});o.hidden=true;analyse(tx)}catch(er){o.textContent='Texterkennung ging gerade nicht. Du kannst den Text auch einfügen.'}});
  s.querySelector('#dS').onclick=async()=>{const t=val('dT');if(!t){toast('Gib dem Dokument einen Titel.');return}const o={id:uid(),kind:'dokument',title:t,note:val('dN'),year:+val('dY')||y,taxType:val('dX'),date:today(),hasImg:!!img,raw};if(pre.galId)o.galId=pre.galId;S.docs.push(o);if(img)await IDB.put(o.id,img);
   const mk=dls.filter(d=>!d.off&&d.date);mk.forEach(d=>S.tasks.push({id:uid(),title:`${d.kind}: ${t}`,cat:'verwaltung',due:d.date,created:today(),postponed:0,started:false,done:null,cost:null,bundle:'',buddy:null,docRef:o.id,steps:suggestSteps(d.kind+' '+t)}));
   save();closeSheet();UI.year=o.year;pts(5,'Dokument abgelegt');if(mk.length)setTimeout(()=>toast(`${mk.length} Frist${mk.length>1?'en':''} als Aufgabe angelegt`),900);render()}})}
