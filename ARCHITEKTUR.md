@@ -7,7 +7,7 @@ Kleinkram ist eine Web-App (HTML, CSS, JavaScript ohne Framework), die mit **Cap
 |---|---|
 | `www/index.html` | Grundgerüst: Kopf, Navigation, Platzhalter, lädt CSS und Module |
 | `www/css/app.css` | Gestaltung. Alle Farben als Tokens in `:root`, Dunkelmodus über `prefers-color-scheme` |
-| `www/js/*.js` | Die App in 18 Modulen (siehe unten), werden in Nummern-Reihenfolge geladen |
+| `www/js/*.js` | Die App in 19 Modulen (siehe unten), werden in Nummern-Reihenfolge geladen |
 | `www/sounds/` | Signaltöne zum Vorhören in der App |
 | `www/lib/` | Fremdbibliotheken, werden beim Bau aus npm kopiert (nicht im Repo) |
 | `native/` | Android-Teil: `KleinkramNativePlugin` (Kalender-Eintrag, Links öffnen), `AufraeumenPlugin` (Fotos/Dateien), `TexterkennungPlugin` (Google ML Kit, offline), `SperrePlugin` (App-Sperre per Fingerabdruck/Display-Sperre), `MainActivity`, `theme.py` (Statusleiste), `manifest.py` (Berechtigungen), `gradle.py` (zusätzliche Bibliotheken, z. B. ML Kit) |
@@ -35,6 +35,7 @@ Kleinkram ist eine Web-App (HTML, CSS, JavaScript ohne Framework), die mit **Cap
 | `16-start.js` | Klicks und Eingaben, Android-Zurück-Taste, Statusleiste, Start |
 | `17-plan-scannen.js` | Plan scannen: Dienst-/Bereitschaftsplan fotografieren, Zeilen bilden, Datum/KW lesen (Lücken im Wochenplan füllen), eigene Zeilen über Name oder Markierung (Kuli, Textmarker) finden, Prüfansicht, als Termine/Aufgaben eintragen |
 | `18-sicherung-sperre.js` | Automatische Wochen-Sicherung nach Dokumente/Kleinkram/Sicherungen (verwalten, einspielen), App-Sperre mit Sperrbildschirm |
+| `19-fotos-ordnen.js` | Ordnung in den Fotos: Reise-Alben (Aufnahmeort + Datum, Land offline aus `www/data/laender.js`), Themen-Alben (Bildinhalt per ML Kit), Haustiere nach Namen (Beispiele + Farbprofil) |
 
 Alle Module teilen sich einen globalen Zustand `S` (wird in `localStorage` unter `kleinkram-v1` gespeichert) und den Oberflächen-Zustand `UI`. Neue Funktionen bekommen ein eigenes Modul vor `13-erinnerungen.js` und werden in `index.html` und `sw.js` eingetragen.
 

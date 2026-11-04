@@ -91,6 +91,7 @@ function vAufraeumen(){if(CAP)clRefreshStatus();const c=clStore(),st=CL.st||{};
    card('trash','Papierkorb','Zurückholen oder endgültig löschen, um sofort Platz zu schaffen',null,0,'Öffnen')+
    `<div class="li"><button class="btn sm ghost" data-act="clScanMedia" ${CL.busy?'disabled':''}>Neu prüfen</button></div>`}
  h+=reg('Fotos &amp; Videos',null,f);
+ if(typeof orSection==='function')h+=orSection();
  // Dateien
  let d='';const ft=c.fileTrash;
  if(st.sdk&&st.sdk<30)d='<p class="small muted">Dateien aufräumen braucht Android 11 oder neuer.</p>';

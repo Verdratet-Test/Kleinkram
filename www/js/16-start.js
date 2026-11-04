@@ -38,6 +38,9 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-act]');if
  case'backup':backupSheet();break;
  case'restore':restoreSheet();break;
  case'reset':resetSheet();break;
+ case'orRun':orRun();break;
+ case'orTrips':orTripsSheet();break;
+ case'orThemes':orThemesSheet();break;
  case'abNow':toast('Sichere …');autoBackup(true).then(ok=>toast(ok?'Gesichert in Dokumente/Kleinkram/Sicherungen':'Sicherung ging nicht'));break;
  case'abManage':abManageSheet();break;
  case'ics':exportSheet();break;

@@ -294,3 +294,9 @@ html.kk-locked body>*:not(#lockScr){visibility:hidden}
 /* Fotos: Kamera oder Galerie */
 .pic-row{gap:8px;flex-wrap:wrap}.pic-row .btn{justify-content:center}
 .scan-gal{display:flex;align-items:center;gap:8px;justify-content:center;margin-top:8px;padding:10px;border-radius:var(--r);border:1px dashed var(--line);color:var(--stamp);font-weight:600;cursor:pointer}
+
+/* Ordnung: Auswahl fürs Album (grün statt rot) */
+.cl-grid.alb .cl-cell.on .ck svg{background:var(--ok)}
+.cl-grid.alb .cl-cell.on img{opacity:1}
+.cl-grid.alb .cl-cell:not(.on) img{opacity:.4}
+.cl-grid.alb button.cl-cell img{opacity:1}
