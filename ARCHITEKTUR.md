@@ -37,7 +37,7 @@ Kleinkram ist eine Web-App (HTML, CSS, JavaScript ohne Framework), die mit **Cap
 | `18-sicherung-sperre.js` | Automatische Wochen-Sicherung nach Dokumente/Kleinkram/Sicherungen (verwalten, einspielen), App-Sperre mit Sperrbildschirm |
 | `19-fotos-ordnen.js` | Ordnung in den Fotos: Reise-Alben (Aufnahmeort + Datum, Land offline aus `www/data/laender.js`), Themen-Alben (Bildinhalt per ML Kit), Haustiere nach Namen (Beispiele + Farbprofil) |
 | `20-personen-tiere.js` | Personen & Tiere: Gesichter gruppieren und benennen, Wiedererkennung über Gesichts-Merkmale (MobileFaceNet), Korrekturen lernen, benannte Haustiere wiedererkennen; Beispiele in IndexedDB (`kk-leute`) |
-| `21-wecker.js` | Wecker mit Aufgabe: Wecker verwalten, Aufgaben (Rechnen, Schütteln, Abtippen, Code scannen, Muster merken), Klingel-Bildschirm, Schlummern, „Bist du wach?“-Check, Morgen-Bildschirm. Android-Teil: `WeckerPlugin`, `WeckerReceiver` (setAlarmClock, Neustart), `WeckerService` (Klingeln, Vollbild über Sperrbildschirm) |
+| `21-wecker.js` | Wecker mit Aufgabe: Wecker verwalten, Aufgaben (Rechnen, Schütteln, Abtippen, Foto von einem Ort, Muster merken), Klingel-Bildschirm, Schlummern, „Bist du wach?“-Check, Morgen-Bildschirm. Android-Teil: `WeckerPlugin`, `WeckerReceiver` (setAlarmClock, Neustart), `WeckerService` (Klingeln, Vollbild über Sperrbildschirm) |
 
 Alle Module teilen sich einen globalen Zustand `S` (wird in `localStorage` unter `kleinkram-v1` gespeichert) und den Oberflächen-Zustand `UI`. Neue Funktionen bekommen ein eigenes Modul vor `13-erinnerungen.js` und werden in `index.html` und `sw.js` eingetragen.
 

@@ -3,8 +3,8 @@
 /* Das Klingeln selbst macht Android (WeckerService): pünktlich, über dem Sperrbildschirm, in Wecker-Lautstärke, auch nach Neustart.
    Hier: Wecker verwalten, Aufgaben stellen, Morgen-Bildschirm. Im Browser lässt sich nur die Aufgabe ausprobieren. */
 const WK={cur:null,snz:0,pauseAt:0,motion:null,stream:null};
-const WTASK={rechnen:'Rechnen',schuetteln:'Schütteln',tippen:'Satz abtippen',code:'Code scannen',merken:'Muster merken'};
-const WTASK_INFO={rechnen:'Kopfrechnen weckt das Gehirn',schuetteln:'Handy kräftig schütteln',tippen:'Einen Satz fehlerfrei abtippen',code:'Einen Code scannen, der z. B. im Bad klebt – dafür musst du aufstehen',merken:'Ein Leuchtmuster nachtippen'};
+const WTASK={rechnen:'Rechnen',schuetteln:'Schütteln',tippen:'Satz abtippen',ort:'Foto von einem Ort',merken:'Muster merken'};
+const WTASK_INFO={rechnen:'Kopfrechnen weckt das Gehirn',schuetteln:'Handy kräftig schütteln',tippen:'Einen Satz fehlerfrei abtippen',ort:'Die gleiche Stelle fotografieren wie vorher festgelegt (z. B. Waschbecken, Kaffeemaschine) – dafür musst du aufstehen',merken:'Ein Leuchtmuster nachtippen'};
 const WSND={standard:'Handy-Weckton',wecker:'Kleinkram-Wecker',glocke:'Glocke',gong:'Gong'};
 const WDAY=['Mo','Di','Mi','Do','Fr','Sa','So'];
 const wList=()=>S.wecker=S.wecker||[];
@@ -45,7 +45,8 @@ async function weckerSheet(){let st=null;if(CAP){try{st=await WP().status()}catc
   s.querySelectorAll('[data-wo]').forEach(c=>c.onchange=async()=>{const w=wList().find(x=>x.id===c.dataset.wo);w.on=c.checked;if(w.on&&!w.days.length)w.date=iso(wNext(Object.assign({},w,{date:null})));save();await weckerPlan();render();toast(w.on?`Klingelt ${wFmtNext(wNext(w))}`:'Wecker aus');weckerSheet()});
   s.querySelectorAll('[data-we]').forEach(b=>b.onclick=()=>weckerEdit(b.dataset.we));
   s.querySelector('[data-wt]').onclick=()=>weckerTry()})}
-function weckerEdit(id){const w0=wList().find(x=>x.id===id);const w=w0?Object.assign({},w0,{days:[...w0.days]}):{id:uid(),on:true,h:6,m:30,days:[1,2,3,4,5],label:'Aufstehen',task:'rechnen',level:2,n:3,snooze:1,snMin:5,sound:'standard',wach:true};
+function weckerEditKeep(w,id){weckerEdit(id,w)}
+function weckerEdit(id,keep){const w0=wList().find(x=>x.id===id);const w=keep?keep:w0?Object.assign({},w0,{days:[...w0.days]}):{id:uid(),on:true,h:6,m:30,days:[1,2,3,4,5],label:'Aufstehen',task:'rechnen',level:2,n:3,snooze:1,snMin:5,sound:'standard',wach:true};
  sheet(`<h2>${w0?'Wecker bearbeiten':'Neuer Wecker'}</h2>
  <label class="f">Uhrzeit<input class="inp" type="time" id="wT" value="${wTime(w)}" style="font-size:28px;font-weight:700"></label>
  <div class="f"><span>Tage <span class="small muted">(keiner = einmalig)</span></span><div class="filters" id="wD">${WDAY.map((d,i)=>`<button class="fchip${w.days.includes(i+1)?' on':''}" style="--c:var(--stamp)" data-d="${i+1}">${d}</button>`).join('')}</div></div>
@@ -60,27 +61,49 @@ function weckerEdit(id){const w0=wList().find(x=>x.id===id);const w=w0?Object.as
  <label class="switch"><span>„Bist du wach?“-Check<br><span class="small muted">5 Min nach dem Ausschalten klingelt er nochmal, wenn du nicht „Ich bin wach“ tippst</span></span><input type="checkbox" id="wW" ${w.wach?'checked':''}></label>
  <div class="sheet-foot stack"><button class="btn pri block" id="wGo">Speichern</button>${w0?'<button class="btn block danger" id="wDel">Löschen</button>':''}</div>`,s=>{
   s.querySelector('#wD').onclick=e=>{const b=e.target.closest('[data-d]');if(!b)return;const d=+b.dataset.d;w.days=w.days.includes(d)?w.days.filter(x=>x!==d):[...w.days,d].sort();b.classList.toggle('on')};
-  const codeBox=()=>{const k=s.querySelector('[name=wk]:checked').value;s.querySelector('#wCode').innerHTML=k==='code'?`<div class="banner"><div class="grow small">${S.set.weckerCode?`Code ist festgelegt (${esc(String(S.set.weckerCode).slice(0,24))}${String(S.set.weckerCode).length>24?'…':''}).`:'<b>Noch kein Code festgelegt.</b>'} Druck den Kleinkram-Code aus und kleb ihn z. B. ans Waschbecken – oder scanne einen QR-Code, der dort schon ist.</div></div><div class="row"><button class="btn sm" id="wCP">Code anzeigen / drucken</button><button class="btn sm" id="wCS">Vorhandenen QR-Code scannen</button></div>`:'';
-   const cp=s.querySelector('#wCP');cp&&(cp.onclick=()=>weckerCodeSheet(()=>weckerEdit(id)));const cs=s.querySelector('#wCS');cs&&(cs.onclick=async()=>{const t=await wScanOnce('Halte den QR-Code ins Bild');if(t){S.set.weckerCode=t;save();toast('Code gespeichert');codeBox()}})};
+  const codeBox=()=>{const k=s.querySelector('[name=wk]:checked').value;const O=wOrte();if(k!=='ort'){s.querySelector('#wCode').innerHTML='';return}
+   s.querySelector('#wCode').innerHTML=`<div class="banner"><div class="grow"><p class="small"><b>Welcher Ort?</b> Morgens musst du genau diese Stelle fotografieren.</p>
+    ${O.length?`<div class="stack" style="margin-top:6px">${O.map(o=>`<label class="switch wk-radio" style="align-items:center"><input type="radio" name="wo" value="${o.id}" ${(w.ortId||O[0].id)===o.id?'checked':''}>${o.img?`<img src="${o.img}" alt="" style="width:56px;height:56px;object-fit:cover;border-radius:8px">`:''}<span class="grow"><b>${esc(o.name)}</b></span></label>`).join('')}</div>`:'<p class="small muted">Noch kein Ort festgelegt.</p>'}
+    <button class="btn sm block" id="wON" style="margin-top:8px">+ Ort festlegen (2 Fotos)</button></div></div>`;
+   s.querySelector('#wON').onclick=()=>{const[h,m]=(val('wT')||'06:30').split(':').map(Number);Object.assign(w,{h,m,label:val('wL'),task:'ort',level:+val('wLv'),n:+val('wN'),snooze:+val('wS'),snMin:+val('wSm'),sound:val('wSo'),wach:s.querySelector('#wW').checked});weckerOrtSheet(o=>{w.ortId=o.id;weckerEditKeep(w,id)},()=>weckerEditKeep(w,id))}};
   s.querySelector('#wK').onchange=codeBox;codeBox();
   s.querySelector('#wGo').onclick=async()=>{const[h,m]=(val('wT')||'06:30').split(':').map(Number);Object.assign(w,{h,m,label:val('wL')||'Wecker',task:s.querySelector('[name=wk]:checked').value,level:+val('wLv'),n:+val('wN'),snooze:+val('wS'),snMin:+val('wSm'),sound:val('wSo'),wach:s.querySelector('#wW').checked,on:true});
-   if(w.task==='code'&&!S.set.weckerCode){toast('Erst einen Code festlegen.');return}
+   if(w.task==='ort'){const sel=s.querySelector('[name=wo]:checked');if(!sel){toast('Erst einen Ort festlegen.');return}w.ortId=sel.value}
    w.date=w.days.length?null:iso(wNext(Object.assign({},w,{date:null})));
    const i=wList().findIndex(x=>x.id===w.id);if(i>=0)wList()[i]=w;else wList().push(w);save();await weckerPlan();render();toast(`Wecker gestellt: ${wFmtNext(wNext(w))} (${wUntil(wNext(w))})`);weckerSheet()};
   const d=s.querySelector('#wDel');d&&(d.onclick=()=>confirmSheet('Wecker löschen?',`${wTime(w)} · ${esc(w.label)}`,'Löschen',async()=>{S.wecker=wList().filter(x=>x.id!==w.id);save();await weckerPlan();render();weckerSheet()},true))})}
-function weckerCodeSheet(back){if(!S.set.weckerCode){S.set.weckerCode='KLEINKRAM-WACH-'+uid().slice(0,8).toUpperCase();save()}const svg=qrSvg(S.set.weckerCode);
- sheet(`<h2>Dein Wecker-Code</h2><p class="small muted">Drucke ihn aus (oder fotografiere den Bildschirm und druck das Foto) und kleb ihn dorthin, wo du morgens hin musst – Bad, Küche, Kaffeemaschine.</p><div style="background:#fff;padding:16px;border-radius:12px;max-width:280px;margin:0 auto">${svg||''}</div><p class="mono small" style="text-align:center">${esc(S.set.weckerCode)}</p><button class="btn block" id="wcB">Zurück</button>`,s=>s.querySelector('#wcB').onclick=back)}
 
 /* ---------- Kamera: QR-Code lesen (live) ---------- */
 async function wCam(video){WK.stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'},audio:false});video.srcObject=WK.stream;await video.play()}
 function wCamStop(){try{WK.stream&&WK.stream.getTracks().forEach(t=>t.stop())}catch(e){}WK.stream=null}
-async function wReadFrame(video,cv){if(!video.videoWidth)return null;
- if('BarcodeDetector' in window){try{WK.bd=WK.bd||new BarcodeDetector();const r=await WK.bd.detect(video);if(r&&r[0])return r[0].rawValue}catch(e){}}
- if(typeof jsQR!=='function')return null;const w=Math.min(640,video.videoWidth),h=Math.round(video.videoHeight*w/video.videoWidth);cv.width=w;cv.height=h;const x=cv.getContext('2d');x.drawImage(video,0,0,w,h);const d=x.getImageData(0,0,w,h);const r=jsQR(d.data,w,h);return r?r.data:null}
-function wScanOnce(title){return new Promise(res=>{sheet(`<h2>${esc(title)}</h2><video id="wV" playsinline muted style="width:100%;border-radius:12px;background:#000"></video><canvas id="wC" hidden></canvas><p class="small muted" id="wM">Kamera startet …</p><button class="btn block" id="wX">Abbrechen</button>`,async s=>{let done=false;const v=s.querySelector('#wV'),cv=s.querySelector('#wC');
-  s.querySelector('#wX').onclick=()=>{done=true;wCamStop();closeSheet();res(null)};
-  try{await wCam(v);s.querySelector('#wM').textContent='Halte den Code ruhig ins Bild.'}catch(e){s.querySelector('#wM').textContent='Kamera ließ sich nicht öffnen.';return}
-  const loop=async()=>{if(done)return;const t=await wReadFrame(v,cv);if(t){done=true;wCamStop();closeSheet();res(t);return}setTimeout(loop,250)};loop()})})}
+
+/* ---------- Ort wiedererkennen: Bildinhalt (Handy: ImageNet-Klassen) + Farbton-Verteilung + grober Bildaufbau ---------- */
+const wOrte=()=>S.wOrte=S.wOrte||[];
+async function wFeat(src,native){const cv=document.createElement('canvas');const sw=src.videoWidth||src.naturalWidth||src.width,sh=src.videoHeight||src.naturalHeight||src.height;const k=320/Math.max(sw,sh);cv.width=Math.max(1,Math.round(sw*k));cv.height=Math.max(1,Math.round(sh*k));const x=cv.getContext('2d');x.drawImage(src,0,0,cv.width,cv.height);
+ const d=x.getImageData(0,0,cv.width,cv.height).data,W=cv.width,H=cv.height;
+ const h=new Float32Array(64);let n=0;for(let i=0;i<d.length;i+=16){const r=d[i],g=d[i+1],b=d[i+2],s=r+g+b+1;if(s<40)continue;h[Math.min(7,(r/s*16)|0)*8+Math.min(7,(g/s*16)|0)]++;n++}for(let i=0;i<64;i++)h[i]/=n||1;
+ const GW=16,GH=12,g=new Float32Array(GW*GH);for(let y=0;y<GH;y++)for(let xx=0;xx<GW;xx++){let s=0,c=0;for(let yy=Math.floor(y*H/GH);yy<Math.floor((y+1)*H/GH);yy+=2)for(let x2=Math.floor(xx*W/GW);x2<Math.floor((xx+1)*W/GW);x2+=2){const o=(yy*W+x2)*4;s+=d[o]*.3+d[o+1]*.59+d[o+2]*.11;c++}g[y*GW+xx]=c?s/c:0}
+ let m=0;g.forEach(v=>m+=v);m/=g.length;let sd=0;g.forEach(v=>sd+=(v-m)**2);sd=Math.sqrt(sd/g.length)||1;for(let i=0;i<g.length;i++)g[i]=(g[i]-m)/sd;
+ const f={h:Array.from(h,v=>Math.round(v*1000)/1000),g:Array.from(g,v=>Math.round(v*100)/100)};
+ if(native&&CAP){try{const r=await CapP('Texterkennung').bildMerkmal({image:cv.toDataURL('image/jpeg',.85).split(',')[1]});f.n={};(r.n||[]).forEach(([t,c])=>f.n[t]=c/100);(r.l||[]).forEach(([t,c])=>f.n['l:'+t]=c/100)}catch(e){}}
+ return f}
+function wSim(a,b){let hs=0;for(let i=0;i<64;i++)hs+=Math.sqrt((a.h[i]||0)*(b.h[i]||0));let gc=0;for(let i=0;i<a.g.length;i++)gc+=a.g[i]*b.g[i];gc=Math.max(0,gc/a.g.length);
+ if(a.n&&b.n){const ks=new Set([...Object.keys(a.n),...Object.keys(b.n)]);let dt=0,na=0,nb=0;ks.forEach(k=>{const x=a.n[k]||0,y=b.n[k]||0;dt+=x*y;na+=x*x;nb+=y*y});const lc=na&&nb?dt/Math.sqrt(na*nb):0;return .45*lc+.25*hs+.30*gc}
+ return .45*hs+.55*gc}
+/* Ort festlegen: 2 Fotos derselben Stelle (leicht anderer Winkel). Daraus ergibt sich, wie ähnlich ein Treffer sein muss. */
+function weckerOrtSheet(done,back){const refs=[];let img=null;
+ sheet(`<h2>Ort festlegen</h2><p class="small muted">Wähle eine Stelle, zu der du morgens gehen musst – z. B. Waschbecken, Kaffeemaschine, Haustür. Etwas mit klarem Aussehen klappt am besten (nicht eine weiße Wand). Das Foto bleibt in Kleinkram, nicht in der Galerie.</p>
+ <label class="f">Name<input class="inp" id="woN" placeholder="z. B. Bad, Küche, Flur" autocomplete="off"></label>
+ <video id="woV" playsinline muted style="width:100%;border-radius:12px;background:#000;max-height:45vh;object-fit:cover"></video>
+ <p class="small" id="woM">Kamera startet …</p>
+ <div class="sheet-foot stack"><button class="btn pri block" id="woF" disabled>Foto 1 von 2</button><button class="btn block ghost" id="woX">Abbrechen</button></div>`,async s=>{const v=s.querySelector('#woV'),btn=s.querySelector('#woF');
+  s.querySelector('#woX').onclick=()=>{wCamStop();back?back():closeSheet()};
+  try{await wCam(v);btn.disabled=false;s.querySelector('#woM').textContent='Richte die Kamera auf die Stelle und tippe auf „Foto“.'}catch(e){s.querySelector('#woM').textContent='Kamera ließ sich nicht öffnen. In den App-Einstellungen die Kamera erlauben.';return}
+  btn.onclick=async()=>{btn.disabled=true;btn.textContent='Moment …';const f=await wFeat(v,true);refs.push(f);
+   if(refs.length===1){const c=document.createElement('canvas');c.width=160;c.height=Math.round(160*v.videoHeight/v.videoWidth)||120;c.getContext('2d').drawImage(v,0,0,c.width,c.height);img=c.toDataURL('image/jpeg',.7);
+    s.querySelector('#woM').textContent='Gut! Jetzt einen Schritt zur Seite und dieselbe Stelle nochmal fotografieren.';btn.textContent='Foto 2 von 2';btn.disabled=false;return}
+   wCamStop();const sim=wSim(refs[0],refs[1]);const thr=Math.max(.5,Math.min(.85,sim*.88));
+   const o={id:uid(),name:val('woN')||'Mein Ort',refs,thr:Math.round(thr*100)/100,img};wOrte().push(o);save();toast(`Ort „${o.name}“ gespeichert`);done(o)}})}
 
 /* ---------- Aufgaben ---------- */
 const WSATZ=[['Ich bin wach.','Heute wird gut.','Aufstehen, los geht’s.'],['Ich stehe jetzt auf und trinke ein Glas Wasser.','Der frühe Vogel fängt den Wurm, also raus hier.','Fünf Minuten anfangen reicht für den Start.'],['Wer morgens gleich aufsteht, hat den Kopf frei für die wichtigen Dinge des Tages.','Ich mache heute zuerst die eine Sache, die ich sonst gern aufschiebe.','Kleine Schritte jeden Morgen bringen mich weiter als große Pläne am Abend.']];
@@ -99,16 +122,20 @@ function wTaskRun(box,task,lv,n,done){let i=0;const step=()=>{if(i>=n){done();re
  else if(task==='merken'){const L=[4,5,7][lv-1],seq=Array.from({length:L},()=>rnd(0,8));let pos=0,ready=false;box.innerHTML=`${head}<p class="small" style="text-align:center" id="wkH">Merk dir die Reihenfolge …</p><div class="wk-grid">${Array.from({length:9},(_,k)=>`<button data-c="${k}"></button>`).join('')}</div>`;
   const cells=[...box.querySelectorAll('[data-c]')];let t=600;seq.forEach((c,j)=>{setTimeout(()=>cells[c].classList.add('on'),t+j*700);setTimeout(()=>cells[c].classList.remove('on'),t+j*700+450)});setTimeout(()=>{ready=true;box.querySelector('#wkH').textContent='Jetzt nachtippen'},t+L*700);
   box.querySelector('.wk-grid').onclick=e=>{const b=e.target.closest('[data-c]');if(!b||!ready)return;wPoke();const c=+b.dataset.c;b.classList.add('on');setTimeout(()=>b.classList.remove('on'),200);if(c===seq[pos]){pos++;if(pos>=L)setTimeout(step,300)}else{ready=false;box.querySelector('#wkH').textContent='Falsch – nochmal ansehen';pos=0;seq.forEach((c2,j)=>{setTimeout(()=>cells[c2].classList.add('on'),600+j*700);setTimeout(()=>cells[c2].classList.remove('on'),600+j*700+450)});setTimeout(()=>{ready=true;box.querySelector('#wkH').textContent='Jetzt nachtippen'},600+L*700)}}}
- else if(task==='code'){box.innerHTML=`${head}<p class="wk-q" style="font-size:22px">Scanne deinen Wecker-Code</p><video id="wkV" playsinline muted style="width:100%;border-radius:12px;background:#000;max-height:45vh;object-fit:cover"></video><canvas id="wkCv" hidden></canvas><p class="small" id="wkM" style="text-align:center">Kamera startet …</p><button class="btn ghost block" id="wkAlt" hidden>Kamera geht nicht? Stattdessen rechnen</button>`;
-  const v=box.querySelector('#wkV'),cv=box.querySelector('#wkCv');let ok=false;const fail=()=>{const b=box.querySelector('#wkAlt');b.hidden=false;b.onclick=()=>{ok=true;wCamStop();task='rechnen';lv=3;i--;step()}};
-  wCam(v).then(()=>{box.querySelector('#wkM').textContent='Halte den Code ins Bild';const loop=async()=>{if(ok||!box.isConnected)return;const t=await wReadFrame(v,cv);if(t&&t===S.set.weckerCode){ok=true;wCamStop();step();return}if(t)box.querySelector('#wkM').textContent='Das ist nicht dein Wecker-Code';wPoke();setTimeout(loop,250)};loop();setTimeout(()=>{if(!ok)fail()},90000)}).catch(()=>{box.querySelector('#wkM').textContent='Kamera ließ sich nicht öffnen.';fail()})}
+ else if(task==='ort'){const O=wOrte().find(o=>o.id===WK.cur.ortId)||wOrte()[0];if(!O){task='rechnen';lv=3;i--;step();return}
+  box.innerHTML=`${head}<p class="wk-q" style="font-size:22px">Geh zu: ${esc(O.name)}</p>${O.img?`<img src="${O.img}" alt="" style="width:88px;height:88px;object-fit:cover;border-radius:10px;margin:0 auto;display:block;opacity:.85">`:''}<video id="wkV" playsinline muted style="width:100%;border-radius:12px;background:#000;max-height:42vh;object-fit:cover"></video><div class="bar" style="width:100%;height:12px"><i id="wkB" style="width:0%"></i></div><p class="small" id="wkM" style="text-align:center">Kamera startet …</p><button class="btn ghost block" id="wkAlt" hidden>Klappt nicht? Stattdessen schwer rechnen</button>`;
+  const v=box.querySelector('#wkV');let ok=false,hits=0,tries=0;const fail=()=>{const b=box.querySelector('#wkAlt');if(!b)return;b.hidden=false;b.onclick=()=>{ok=true;wCamStop();task='rechnen';lv=3;i--;step()}};
+  wCam(v).then(()=>{box.querySelector('#wkM').textContent='Halte die Kamera auf die gleiche Stelle wie beim Festlegen';const loop=async()=>{if(ok||!box.isConnected)return;wPoke();tries++;
+   const f=await wFeat(v,!!O.refs[0].n);const sc=Math.max(...O.refs.map(r=>wSim(f,r)));const pct=Math.max(0,Math.min(100,sc/O.thr*100));box.querySelector('#wkB').style.width=pct+'%';
+   if(sc>=O.thr){hits++;box.querySelector('#wkM').textContent='Gefunden – kurz ruhig halten …';if(hits>=2){ok=true;wCamStop();step();return}}else{hits=0;box.querySelector('#wkM').textContent=pct>70?'Fast – etwas näher oder gleicher Winkel':'Noch nicht die richtige Stelle'}
+   if(tries===40)fail();setTimeout(loop,450)};loop()}).catch(()=>{box.querySelector('#wkM').textContent='Kamera ließ sich nicht öffnen.';fail()})}
  else{/* wach: eine leichte Aufgabe */const p=wMath(1);box.innerHTML=`${head}<p class="wk-q">${p.q} = ?</p><input class="inp" id="wkI" inputmode="numeric" style="font-size:28px;text-align:center"><button class="btn pri block" id="wkOk">Ich bin wach</button>`;box.querySelector('#wkOk').onclick=()=>{if(+val('wkI')===p.a)step();else toast('Nochmal rechnen')}}};step()}
 
 /* ---------- Klingeln ---------- */
 function wParse(a){const w=wList().find(x=>x.id===a.id);const[t,l,n]=String(a.task||'').split('|');
  if(a.id==='wach')return{w:w||{label:'Bist du wach?',snooze:0},task:'wach',lv:1,n:1};
  return{w:w||{label:a.label||'Wecker',snooze:1,snMin:5,sound:'standard',wach:false},task:WTASK[t]?t:(w&&w.task)||'rechnen',lv:+l||(w&&w.level)||2,n:+n||(w&&w.n)||3}}
-function weckerRing(a){if(!a||!a.id)return;if(WK.cur&&WK.cur.id===a.id&&$('#weckerScr'))return;const p=wParse(a);WK.cur=Object.assign({id:a.id,label:a.label},p);
+function weckerRing(a){if(!a||!a.id)return;if(WK.cur&&WK.cur.id===a.id&&$('#weckerScr'))return;const p=wParse(a);WK.cur=Object.assign({id:a.id,label:a.label,ortId:p.w&&p.w.ortId},p);
  const el=$('#weckerScr')||document.body.appendChild(Object.assign(document.createElement('div'),{id:'weckerScr'}));
  const snLeft=(p.w.snooze||0)-WK.snz;const now=new Date();
  el.innerHTML=`<div class="wk-box"><p class="wk-time">${pad(now.getHours())}:${pad(now.getMinutes())}</p><p class="wk-label">${esc(a.label||p.w.label||'Wecker')}</p>
