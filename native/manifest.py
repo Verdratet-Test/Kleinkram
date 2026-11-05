@@ -14,6 +14,14 @@ perms = [
     'android.permission.MANAGE_EXTERNAL_STORAGE',
     # Ordnung: Aufnahmeort der Fotos lesen (Reise-Alben), nur im Gerät
     'android.permission.ACCESS_MEDIA_LOCATION',
+    # Wecker mit Aufgabe: pünktlich klingeln, über dem Sperrbildschirm, nach Neustart wieder einplanen
+    'android.permission.USE_EXACT_ALARM',
+    'android.permission.USE_FULL_SCREEN_INTENT',
+    'android.permission.FOREGROUND_SERVICE',
+    'android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK',
+    'android.permission.WAKE_LOCK',
+    'android.permission.RECEIVE_BOOT_COMPLETED',
+    'android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS',
 ]
 lines = []
 for x in perms:
@@ -28,5 +36,19 @@ s = s.replace(anchor, anchor + '\n' + '\n'.join(lines), 1)
 if 'xmlns:tools=' not in s:
     s = s.replace('<manifest ', '<manifest xmlns:tools="http://schemas.android.com/tools" ', 1)
 s = s.replace('android.permission.MANAGE_EXTERNAL_STORAGE" />', 'android.permission.MANAGE_EXTERNAL_STORAGE" tools:ignore="ScopedStorage" />')
+# Wecker: Empfänger (Weckzeit, Neustart) und Klingel-Dienst
+comp = '''
+        <receiver android:name=".WeckerReceiver" android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+            </intent-filter>
+        </receiver>
+        <service android:name=".WeckerService" android:exported="false" android:foregroundServiceType="mediaPlayback" />
+'''
+if '.WeckerReceiver' not in s:
+    s = s.replace('</application>', comp + '    </application>', 1)
 open(p, 'w').write(s)
 print('Berechtigungen:', len(lines))
