@@ -42,6 +42,7 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-act]');if
  case'orTrips':orTripsSheet();break;
  case'orThemes':orThemesSheet();break;
  case'leute':leuteSheet();break;
+ case'wecker':weckerSheet();break;
  case'abNow':toast('Sichere …');autoBackup(true).then(ok=>toast(ok?'Gesichert in Dokumente/Kleinkram/Sicherungen':'Sicherung ging nicht'));break;
  case'abManage':abManageSheet();break;
  case'ics':exportSheet();break;
@@ -86,7 +87,7 @@ window.addEventListener('hashchange',()=>{const h=location.hash.slice(1);if(NAV.
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&!$('#focusHost').innerHTML){if(UI.tab==='aufraeumen')CL.stAt=0;render();if(CAP)scheduleAll()}});
 
 /* ---------- Android: Zurück-Taste, Statusleiste ---------- */
-function onBack(){if(typeof clViewerOpen==='function'&&clViewerOpen()){clViewerClose();return true}if($('#sheetHost').innerHTML){closeSheet();return true}const fx=document.querySelector('[data-f="close"]');if(fx){fx.click();return true}if(UI.tab==='aufraeumen'){go('ich');return true}if(UI.tab!=='heute'){go('heute');return true}return false}
+function onBack(){if($('#weckerScr'))return true;if(typeof clViewerOpen==='function'&&clViewerOpen()){clViewerClose();return true}if($('#sheetHost').innerHTML){closeSheet();return true}const fx=document.querySelector('[data-f="close"]');if(fx){fx.click();return true}if(UI.tab==='aufraeumen'){go('ich');return true}if(UI.tab!=='heute'){go('heute');return true}return false}
 if(CAP){try{CapP('App').addListener('backButton',()=>{if(!onBack()){try{CapP('App').minimizeApp()}catch(e){}}})}catch(e){}
  const sb=()=>{const dark=window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches;try{const SB=CapP('StatusBar');SB.setStyle({style:dark?'DARK':'LIGHT'}).catch(()=>{});SB.setBackgroundColor({color:dark?'#121815':'#ECEFE9'}).catch(()=>{})}catch(e){}};
  sb();try{matchMedia('(prefers-color-scheme: dark)').addEventListener('change',sb)}catch(e){}}

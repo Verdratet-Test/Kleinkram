@@ -7,7 +7,7 @@ Kleinkram ist eine Web-App (HTML, CSS, JavaScript ohne Framework), die mit **Cap
 |---|---|
 | `www/index.html` | Grundgerüst: Kopf, Navigation, Platzhalter, lädt CSS und Module |
 | `www/css/app.css` | Gestaltung. Alle Farben als Tokens in `:root`, Dunkelmodus über `prefers-color-scheme` |
-| `www/js/*.js` | Die App in 20 Modulen (siehe unten), werden in Nummern-Reihenfolge geladen |
+| `www/js/*.js` | Die App in 21 Modulen (siehe unten), werden in Nummern-Reihenfolge geladen |
 | `www/sounds/` | Signaltöne zum Vorhören in der App |
 | `www/lib/` | Fremdbibliotheken, werden beim Bau aus npm kopiert (nicht im Repo) |
 | `native/` | Android-Teil: `KleinkramNativePlugin` (Kalender-Eintrag, Links öffnen), `AufraeumenPlugin` (Fotos/Dateien), `TexterkennungPlugin` (Google ML Kit, offline), `SperrePlugin` (App-Sperre per Fingerabdruck/Display-Sperre), `MainActivity`, `theme.py` (Statusleiste), `manifest.py` (Berechtigungen), `gradle.py` (zusätzliche Bibliotheken: ML Kit Text/Bildlabels/Gesichter, TensorFlow Lite, Biometrie), `modelle/` (Gesichtsmodell MobileFaceNet, BSD-3); das ImageNet-Modell (EfficientNet-Lite2) lädt der Bau von Google herunter |
@@ -37,6 +37,7 @@ Kleinkram ist eine Web-App (HTML, CSS, JavaScript ohne Framework), die mit **Cap
 | `18-sicherung-sperre.js` | Automatische Wochen-Sicherung nach Dokumente/Kleinkram/Sicherungen (verwalten, einspielen), App-Sperre mit Sperrbildschirm |
 | `19-fotos-ordnen.js` | Ordnung in den Fotos: Reise-Alben (Aufnahmeort + Datum, Land offline aus `www/data/laender.js`), Themen-Alben (Bildinhalt per ML Kit), Haustiere nach Namen (Beispiele + Farbprofil) |
 | `20-personen-tiere.js` | Personen & Tiere: Gesichter gruppieren und benennen, Wiedererkennung über Gesichts-Merkmale (MobileFaceNet), Korrekturen lernen, benannte Haustiere wiedererkennen; Beispiele in IndexedDB (`kk-leute`) |
+| `21-wecker.js` | Wecker mit Aufgabe: Wecker verwalten, Aufgaben (Rechnen, Schütteln, Abtippen, Code scannen, Muster merken), Klingel-Bildschirm, Schlummern, „Bist du wach?“-Check, Morgen-Bildschirm. Android-Teil: `WeckerPlugin`, `WeckerReceiver` (setAlarmClock, Neustart), `WeckerService` (Klingeln, Vollbild über Sperrbildschirm) |
 
 Alle Module teilen sich einen globalen Zustand `S` (wird in `localStorage` unter `kleinkram-v1` gespeichert) und den Oberflächen-Zustand `UI`. Neue Funktionen bekommen ein eigenes Modul vor `13-erinnerungen.js` und werden in `index.html` und `sw.js` eingetragen.
 
