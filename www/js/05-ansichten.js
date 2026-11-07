@@ -20,7 +20,7 @@ function taskCard(t,compact){const s=snow(t),a=ageOf(t),st=nextStep(t),steps=t.s
  </article>`}
 function freizeitState(){const p=S.routines.filter(r=>r.pflicht&&rDue(r));const left=p.filter(r=>!r.days.includes(today())).length;const needTask=openTasks().length>0&&!S.active.includes(today());return{open:left===0&&!needTask,left,needTask}}
 
-function vHeute(){const t=today(),d=new Date();const hr=d.getHours();const greet=hr<11?'Guten Morgen':hr<17?'Hallo':'Guten Abend';
+function vHeute(){const t=today(),d=new Date();const hr=d.getHours();const greet=hr<5?'Gute Nacht':hr<11?'Guten Morgen':hr<17?'Hallo':'Guten Abend';
  const R=ranked();if(UI.oneIdx>=R.length)UI.oneIdx=0;const one=R[UI.oneIdx];
  const F=freizeitState();
  const overdue=openTasks().filter(x=>x.due&&x.due<t);

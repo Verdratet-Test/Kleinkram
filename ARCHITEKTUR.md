@@ -7,7 +7,7 @@ Kleinkram ist eine Web-App (HTML, CSS, JavaScript ohne Framework), die mit **Cap
 |---|---|
 | `www/index.html` | Grundgerüst: Kopf, Navigation, Platzhalter, lädt CSS und Module |
 | `www/css/app.css` | Gestaltung. Alle Farben als Tokens in `:root`, Dunkelmodus über `prefers-color-scheme` |
-| `www/js/*.js` | Die App in 21 Modulen (siehe unten), werden in Nummern-Reihenfolge geladen |
+| `www/js/*.js` | Die App in 25 Modulen (siehe unten), werden in Nummern-Reihenfolge geladen |
 | `www/sounds/` | Signaltöne zum Vorhören in der App |
 | `www/lib/` | Fremdbibliotheken, werden beim Bau aus npm kopiert (nicht im Repo) |
 | `native/` | Android-Teil: `KleinkramNativePlugin` (Kalender-Eintrag, Links öffnen), `AufraeumenPlugin` (Fotos/Dateien), `TexterkennungPlugin` (Google ML Kit, offline), `SperrePlugin` (App-Sperre per Fingerabdruck/Display-Sperre), `MainActivity`, `theme.py` (Statusleiste), `manifest.py` (Berechtigungen), `gradle.py` (zusätzliche Bibliotheken: ML Kit Text/Bildlabels/Gesichter, TensorFlow Lite, Biometrie), `modelle/` (Gesichtsmodell MobileFaceNet, BSD-3); das ImageNet-Modell (EfficientNet-Lite2) lädt der Bau von Google herunter |
@@ -38,6 +38,10 @@ Kleinkram ist eine Web-App (HTML, CSS, JavaScript ohne Framework), die mit **Cap
 | `19-fotos-ordnen.js` | Ordnung in den Fotos: Reise-Alben (Aufnahmeort + Datum, Land offline aus `www/data/laender.js`), Themen-Alben (Bildinhalt per ML Kit), Haustiere nach Namen (Beispiele + Farbprofil) |
 | `20-personen-tiere.js` | Personen & Tiere: Gesichter gruppieren und benennen, Wiedererkennung über Gesichts-Merkmale (MobileFaceNet), Korrekturen lernen, benannte Haustiere wiedererkennen; Beispiele in IndexedDB (`kk-leute`) |
 | `21-wecker.js` | Wecker mit Aufgabe: Wecker verwalten, Aufgaben (Rechnen, Schütteln, Abtippen, Foto von einem Ort, Muster merken), Klingel-Bildschirm, Schlummern, „Bist du wach?“-Check, Morgen-Bildschirm. Android-Teil: `WeckerPlugin`, `WeckerReceiver` (setAlarmClock, Neustart), `WeckerService` (Klingeln, Vollbild über Sperrbildschirm) |
+| `22-briefe.js` | Eigener PDF-Erzeuger (A4, Helvetica, Umlaute, ohne Bibliothek), Geschäftsbrief nach DIN 5008, Vorlagen: Kündigung (aus Verträgen), Einspruch Steuerbescheid (Frist: Bekanntgabe +4 Tage +1 Monat), Widerspruch, freier Brief |
+| `23-nebenkosten.js` | Betriebskostenabrechnung pro Objekt/Jahr: Kostenarten § 2 BetrKV, Umlageschlüssel (Fläche, Personen, Einheiten, Verbrauch, 30/70, 50/50, Betrag je Mieter), Zeitanteile, Vorauszahlungen, Vorbefüllen aus Belegen, PDF je Mieter mit § 35a-Hinweis |
+| `24-ablaufdaten.js` | Ausweise & Prüftermine (Personalausweis, Pass, Führerschein, TÜV, Karten …) mit Vorlauf-Aufgabe |
+| `25-kopf-leeren.js` | Kopf leeren (Schnellerfassung auf „Heute“, später als Aufgabe/Termin/Notiz einsortieren) und Daten fürs Widget (Android-Teil: `KleinkramWidget`, Layout in `resources/android/layout`) |
 
 Alle Module teilen sich einen globalen Zustand `S` (wird in `localStorage` unter `kleinkram-v1` gespeichert) und den Oberflächen-Zustand `UI`. Neue Funktionen bekommen ein eigenes Modul vor `13-erinnerungen.js` und werden in `index.html` und `sw.js` eingetragen.
 

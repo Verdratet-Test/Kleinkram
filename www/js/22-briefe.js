@@ -2,8 +2,8 @@
 "use strict";
 /* ---------- kleiner PDF-Erzeuger (A4, Helvetica, deutsche Umlaute) ---------- */
 const PDF_HW=[278,278,355,556,556,889,667,191,333,333,389,584,278,333,278,278,556,556,556,556,556,556,556,556,556,556,278,278,584,584,584,556,1015,667,667,722,722,667,611,778,722,278,500,667,556,833,722,778,667,778,722,667,611,722,667,944,667,667,611,278,278,278,469,556,333,556,556,500,556,556,278,556,556,222,222,500,222,833,556,556,556,556,333,500,278,556,500,722,500,500,500,334,260,334,584];
-const PDF_CP={'€':0x80,'‚':0x82,'„':0x84,'…':0x85,'‘':0x91,'’':0x92,'“':0x93,'”':0x94,'•':0x95,'–':0x96,'—':0x97};
-const pdfCode=ch=>{const c=ch.charCodeAt(0);if(c<128)return c;if(PDF_CP[ch])return PDF_CP[ch];if(c>=160&&c<256)return c;return 63};
+const PDF_CP={'−':0x2D,'✓':0x78,'€':0x80,'‚':0x82,'„':0x84,'…':0x85,'‘':0x91,'’':0x92,'“':0x93,'”':0x94,'•':0x95,'–':0x96,'—':0x97};
+const pdfCode=ch=>{const c=ch.charCodeAt(0);if(c<128)return c;if(PDF_CP[ch]!=null)return PDF_CP[ch];if(c>=160&&c<256)return c;return 63};
 function pdfCharW(code){if(code>=32&&code<=126)return PDF_HW[code-32];if(code===0x80)return 556;if(code===0x84||code===0x93||code===0x94||code===0x91||code===0x92)return 333;if(code===0x96)return 556;if(code===0x97)return 1000;
  const base={196:667,214:778,220:722,228:556,246:556,252:556,223:611,167:556,176:400,233:556,232:556,224:556,225:556,231:500,201:667};return base[code]||556}
 function pdfW(s,size,bold){let w=0;for(const ch of String(s))w+=pdfCharW(pdfCode(ch));return w*size/1000*(bold?1.06:1)}
@@ -46,7 +46,7 @@ function pdfLetter(L){const d=PDF(),m=me(),left=25,right=190,bw=right-left;let y
  const para=txt=>{d.wrap(txt,bw,11).forEach(t=>{if(y>272)np();if(t)d.text(left,y,t,{size:11});y+=5.3})};
  para(L.anrede||'Sehr geehrte Damen und Herren,');y+=3;
  (L.absaetze||[]).forEach(a=>{if(a&&a.table){y=pdfTable(d,a,y,left,right,np);y+=4;return}para(a);y+=3});
- if(y>250)np();y+=2;para(L.gruss||'Mit freundlichen Grüßen');y+=16;d.text(left,y,m.name||'',{size:11});
+ if(y>258)np();y+=2;para(L.gruss||'Mit freundlichen Grüßen');y+=16;d.text(left,y,m.name||'',{size:11});
  if(L.anlagen&&L.anlagen.length){y+=10;if(y>275)np();d.text(left,y,'Anlage'+(L.anlagen.length>1?'n':''),{size:9.5,bold:true});y+=4.6;L.anlagen.forEach(a=>{d.text(left,y,'– '+a,{size:9.5});y+=4.4})}
  return d.bytes()}
 /* Tabelle für die Nebenkostenabrechnung: {table:true, cols:[{t,w,align}], rows:[[...]], foot:[[...]]} */
@@ -54,7 +54,9 @@ function pdfTable(d,T,y,left,right,np){const sz=T.size||8.6,lh=4.6;const xs=[];l
  const row=(cells,bold,shade)=>{const lines=cells.map((c,i)=>T.cols[i].align==='right'?[String(c)]:d.wrap(String(c),T.cols[i].w-2,sz,bold));const h=Math.max(...lines.map(l=>l.length))*lh+1.4;
   if(y+h>280){np();head()}if(shade)d.rect(left,y-3.6,right-left,h,.94);
   lines.forEach((l,i)=>l.forEach((t,k)=>{const c=T.cols[i];d.text(c.align==='right'?xs[i]+c.w-1.5:xs[i]+.5,y+k*lh,t,{size:sz,bold,align:c.align==='right'?'right':undefined})}));y+=h};
- const head=()=>{row(T.cols.map(c=>c.t),true,true)};head();T.rows.forEach(r=>row(r,false,false));d.line(left,y-3,right,y-3,.4);(T.foot||[]).forEach((r,i)=>row(r,true,i===T.foot.length-1));return y}
+ const head=()=>{row(T.cols.map(c=>c.t),true,true)};head();T.rows.forEach(r=>row(r,false,false));d.line(left,y-3,right,y-3,.4);
+ /* Summenzeilen: Text über die ganze Breite, Betrag rechts */
+ (T.foot||[]).forEach((r,i)=>{const last=i===T.foot.length-1;if(y+lh>280){np()}if(last)d.rect(left,y-3.6,right-left,lh+1.6,.9);d.text(left+.5,y,String(r[0]),{size:last?sz+.8:sz,bold:true});d.text(right-1.5,y,String(r[r.length-1]),{size:last?sz+.8:sz,bold:true,align:'right'});y+=lh+1.6});return y}
 
 /* ---------- Fristen ---------- */
 const nextWorkday=d=>{let x=d;while([0,6].includes(P(x).getDay()))x=addDays(x,1);return x};

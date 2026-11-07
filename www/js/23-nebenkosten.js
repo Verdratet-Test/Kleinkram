@@ -26,11 +26,11 @@ function nkFromDocs(o,N){const ds=S.docs.filter(d=>d.objId===o.id&&(d.date||'')>
 function nkCalc(N){const pd=diff(N.von,N.bis)+1;const res=N.mieter.map(m=>{const a=m.von&&m.von>N.von?m.von:N.von,b=m.bis&&m.bis<N.bis?m.bis:N.bis;const tage=a<=b?diff(a,b)+1:0;return{m,von:a,bis:b,tage,f:tage/pd,rows:[],sum:0,s35:0}});
  N.kosten.filter(k=>+k.betrag>0||(k.key==='direkt'&&Object.values(k.direkt||{}).some(v=>+v))).forEach(k=>{const B=+k.betrag||0,name=(BK.find(x=>x[0]===k.art)||[0,k.name||'Kosten'])[1];
   res.forEach(r=>{let sh=0,ds='';const v=+(k.verbrauch||{})[r.m.id]||0,g=+k.gesamt||0,fl=+N.flaeche?(+r.m.flaeche||0)/+N.flaeche:0;const zeit=r.tage<pd?` × ${r.tage}/${pd} Tage`:'';
-   if(k.key==='flaeche'){sh=B*fl*r.f;ds=`${nfm(r.m.flaeche)} von ${nfm(N.flaeche)} m²${zeit}`}
+   if(k.key==='flaeche'){sh=B*fl*r.f;ds=`${nfm(r.m.flaeche)} von ${nfm(N.flaeche)} qm${zeit}`}
    else if(k.key==='personen'){sh=+N.personen?B*(+r.m.personen||0)/+N.personen*r.f:0;ds=`${nfm(r.m.personen)} von ${nfm(N.personen)} Personen${zeit}`}
    else if(k.key==='einheiten'){sh=+N.einheiten?B/+N.einheiten*r.f:0;ds=`1 von ${nfm(N.einheiten)} Einheiten${zeit}`}
    else if(k.key==='verbrauch'){sh=g?B*v/g:0;ds=`Verbrauch ${nfm(v)} von ${nfm(g)}`}
-   else if(k.key==='mix70'||k.key==='mix50'){const a=k.key==='mix70'?.7:.5;sh=B*((1-a)*fl*r.f+(g?a*v/g:0));ds=`${Math.round((1-a)*100)} % nach Fläche (${nfm(r.m.flaeche)}/${nfm(N.flaeche)} m²), ${Math.round(a*100)} % nach Verbrauch (${nfm(v)}/${nfm(g)})`}
+   else if(k.key==='mix70'||k.key==='mix50'){const a=k.key==='mix70'?.7:.5;sh=B*((1-a)*fl*r.f+(g?a*v/g:0));ds=`${Math.round((1-a)*100)} % nach Fläche (${nfm(r.m.flaeche)}/${nfm(N.flaeche)} qm), ${Math.round(a*100)} % nach Verbrauch (${nfm(v)}/${nfm(g)})`}
    else if(k.key==='direkt'){sh=+(k.direkt||{})[r.m.id]||0;ds='laut Einzelabrechnung'}
    sh=r2(sh);r.rows.push({k,name,B,sh,ds});r.sum+=sh;if(BK35.includes(k.art))r.s35+=sh})});
  res.forEach(r=>{r.sum=r2(r.sum);r.s35=r2(r.s35);const g=String(r.m.vzGezahlt??'').trim();r.vz=g!==''?r2(+g.replace(',','.')):r2((+r.m.vz||0)*12*r.f);r.saldo=r2(r.sum-r.vz);r.vzNeu=Math.ceil(r.sum/12/5)*5});return{pd,res}}
