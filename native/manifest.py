@@ -47,6 +47,12 @@ comp = '''
             </intent-filter>
         </receiver>
         <service android:name=".WeckerService" android:exported="false" android:foregroundServiceType="mediaPlayback" />
+        <receiver android:name=".KleinkramWidget" android:exported="true" android:label="Kleinkram">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/kk_widget_info" />
+        </receiver>
 '''
 if '.WeckerReceiver' not in s:
     s = s.replace('</application>', comp + '    </application>', 1)

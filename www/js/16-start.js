@@ -58,6 +58,10 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-act]');if
  case'meter':meterSheet(id,el.dataset.m);break;
  case'reading':readingSheet(id,el.dataset.m);break;
  case'warranty':warrantySheet(id);break;
+ case'ablauf':ablaufSheet(id);break;
+ case'brief':briefStart();break;
+ case'nkCalc':nkSheet(id,el.dataset.y);break;
+ case'kopf':kopfSheet();break;
  case'review':reviewSheet();break;
  case'clMediaPerm':AR().requestMedia().then(s=>{CL.st=Object.assign({},CL.st,s);render();if(s.media!=='granted')toast('Ohne Zugriff kann Kleinkram keine Fotos prüfen.')}).catch(e=>toast('Ging nicht: '+(e&&e.message||e)));break;
  case'clFilesPerm':AR().openFilesAccess().catch(e=>toast(e&&e.message||'Ging nicht'));break;

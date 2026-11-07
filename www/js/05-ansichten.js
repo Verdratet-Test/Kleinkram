@@ -29,6 +29,7 @@ function vHeute(){const t=today(),d=new Date();const hr=d.getHours();const greet
  const buddies=openTasks().filter(x=>x.buddy&&x.buddy.name&&!x.started&&x.due&&x.due<=t&&(x.due<t||!x.buddy.by||`${pad(hr)}:${pad(d.getMinutes())}`>=x.buddy.by));
  const soon=S.recurring.filter(r=>r.next&&diff(t,r.next)>=0&&diff(t,r.next)<=45).sort((a,b)=>a.next.localeCompare(b.next));
  let h=head(`${greet}${S.name?`, ${esc(S.name)}`:''}`,fmtD(t,true)==='heute'?`${WDL[d.getDay()]}, ${d.getDate()}. ${MON[d.getMonth()]}`:fmtD(t,true));
+ if(typeof kopfCard==='function')h+=kopfCard();
  if(S.set.freizeit)h+=`<div class="freizeit${F.open?' open':''}"><div class="ic">${F.open?ICON.unlock:ICON.lock}</div><div class="grow"><h3>${F.open?'Freizeit ist frei':'Freizeit noch zu'}</h3><p class="small muted">${F.open?'TV, Zocken, Couch. Mit gutem Gewissen.':[F.left?`${F.left} Routine${F.left>1?'n':''}`:'',F.needTask?'eine Aufgabe anfangen':''].filter(Boolean).join(' und ')+' bis zur Freigabe'}</p></div></div>`;
  if(reviewTarget())h+=`<div class="banner" style="margin-top:12px"><div class="grow"><h3>Wochen-Rückblick</h3><p class="small muted">5 Minuten: zurückschauen, 3 Ziele für nächste Woche. +20 Punkte.</p></div><button class="btn sm pri" data-act="review">Los</button></div>`;
  if(overdue.length>=3)h+=`<div class="banner" style="margin-top:12px"><div class="grow"><h3>${overdue.length} Sachen sind liegen geblieben</h3><p class="small muted">Passiert. Wir sortieren neu, ohne Vorwürfe.</p></div><button class="btn sm pri" data-act="restart">Frischer Start</button></div>`;
@@ -82,14 +83,15 @@ function vAufgaben(){let h=head('Aufgaben',`${openTasks().length} offen`)+`<div 
 function vAblage(){const y=UI.year;const years=[...new Set([new Date().getFullYear(),...S.docs.map(d=>+d.year)])].sort((a,b)=>b-a);const T=taxYear(y);
  let docs=S.docs.filter(d=>+d.year===y);if(UI.docFilter==='steuer')docs=docs.filter(d=>d.taxType&&d.taxType!=='none');if(UI.docFilter==='offen')docs=docs.filter(d=>d.kind==='rechnung'&&!d.paid);if(String(UI.docFilter).startsWith('obj:'))docs=docs.filter(d=>d.objId===UI.docFilter.slice(4));
  docs.sort((a,b)=>(b.date||'').localeCompare(a.date||''));
- const seg=`<div class="seg" style="margin-bottom:14px">${[['belege','Belege'],['vertraege','Verträge'],['haus','Haus'],['garantie','Garantie']].map(([k,l])=>`<button class="${(UI.abl||'belege')===k?'on':''}" data-act="abl" data-k="${k}">${l}</button>`).join('')}</div>`;
+ const seg=`<div class="seg" style="margin-bottom:14px">${[['belege','Belege'],['vertraege','Verträge'],['haus','Haus'],['garantie','Fristen']].map(([k,l])=>`<button class="${(UI.abl||'belege')===k?'on':''}" data-act="abl" data-k="${k}">${l}</button>`).join('')}</div>`;
  if(UI.abl==='vertraege')return head('Ablage',`${(S.contracts||[]).length} Verträge`)+seg+vVertraege();
  if(UI.abl==='haus')return head('Ablage',`${objs().length} Objekt${objs().length===1?'':'e'}`)+seg+vHaus();
- if(UI.abl==='garantie')return head('Ablage',`${(S.warranties||[]).length} Garantien`)+seg+vGarantie();
+ if(UI.abl==='garantie')return head('Ablage',`${(S.ablauf||[]).length} Ausweise · ${(S.warranties||[]).length} Garantien`)+seg+(typeof vAblauf==='function'?vAblauf():'')+vGarantie();
  let h=head('Ablage',`${S.docs.length} Dokumente`)+seg+`<div class="scan-row"><label class="scan-btn pri" for="scanInput">${ICON.cam}<span>Rechnung scannen</span><small>Foto → Überweisungsdaten + GiroCode</small></label><button class="scan-btn" data-act="newDoc">${ICON.doc}<span>Dokument ablegen</span><small>Brief, Bescheid, Vertrag</small></button></div>
  <label class="scan-gal" for="scanInputG">${ICON.gal} Rechnung aus der Galerie wählen</label>
  <input type="file" id="scanInput" accept="image/*" capture="environment" hidden><input type="file" id="scanInputG" accept="image/*" hidden>
  <button class="btn block ghost" data-act="pasteInv" style="margin-top:8px">Rechnungstext einfügen statt Foto</button>
+ <button class="btn block" data-act="brief" style="margin-top:8px">${ICON.doc} Brief schreiben: Kündigung, Einspruch, Widerspruch</button>
  <div class="folders" style="margin-top:18px" role="tablist" aria-label="Jahresordner">${years.map(Y=>`<button class="folder${Y===y?' on':''}" data-act="year" data-y="${Y}">${Y}</button>`).join('')}</div>`;
  h+=reg(`Steuer ${y}`,T.count,`<div class="tax"><span>Handwerker-Arbeitskosten</span><span class="sum">${eur(T.hw)}</span><span>Haushaltsnahe Dienste (Arbeitskosten)</span><span class="sum">${eur(T.hh)}</span>${T.wk?`<span>Werbungskosten gesammelt</span><span class="sum">${eur(T.wk)}</span>`:''}${T.vm.map(x=>`<span>Vermietung ${esc(x.o.name)} (Anlage V)</span><span class="sum">${eur(x.sum)}</span>`).join('')}
  <span style="grid-column:1/-1;border-top:1px solid var(--line);margin:4px 0"></span><span><b>Voraussichtliche Steuerermäßigung</b><br><span class="small muted">${T.R.hw.p} % bis ${eur(T.R.hw.max)} · ${T.R.hh.p} % bis ${eur(T.R.hh.max)}</span></span><span class="sum big">${eur(T.hwBack+T.hhBack)}</span></div>

@@ -82,6 +82,13 @@ const b64=s=>btoa(unescape(encodeURIComponent(s)));
 function openOutside(url){if(CAP){CapP('KleinkramNative').openExternal({url}).catch(()=>copy(url));return}try{window.open(url,'_blank','noopener')}catch(e){copy(url)}}
 async function shareFile(name,text,mime){if(CAP){try{const uri=await capWrite(name,text,'CACHE');await CapP('Share').share({title:name,files:[uri]});return true}catch(e){if(/cancel/i.test(String(e&&e.message)))return true;toast('Teilen ging nicht.');return false}}try{const f=new File([text],name,{type:mime});if(navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({files:[f],title:name});return true}}catch(e){if(e&&e.name==='AbortError')return true}
  return saveFile(name,text,mime)}
+/* Binärdateien (PDF): teilen oder speichern */
+const u8b64=u=>{let s='';for(let i=0;i<u.length;i+=0x8000)s+=String.fromCharCode.apply(null,u.subarray(i,i+0x8000));return btoa(s)};
+async function capWriteBin(name,bytes,dir){const r=await CapP('Filesystem').writeFile({path:dir==='DOCUMENTS'?'Kleinkram/'+name:name,data:u8b64(bytes),directory:dir,recursive:true});return r.uri}
+async function shareBin(name,bytes,mime){if(CAP){try{const uri=await capWriteBin(name,bytes,'CACHE');await CapP('Share').share({title:name,files:[uri]});return true}catch(e){if(/cancel/i.test(String(e&&e.message)))return true;toast('Teilen ging nicht.');return false}}
+ try{const f=new File([bytes],name,{type:mime});if(navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({files:[f],title:name});return true}}catch(e){if(e&&e.name==='AbortError')return true}return saveBin(name,bytes,mime)}
+function saveBin(name,bytes,mime){if(CAP){capWriteBin(name,bytes,'DOCUMENTS').then(()=>toast('Gespeichert unter Dokumente/Kleinkram')).catch(()=>shareBin(name,bytes,mime));return true}
+ try{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([bytes],{type:mime}));a.download=name;document.body.appendChild(a);a.click();a.remove();toast('Datei wird gespeichert');return true}catch(e){return false}}
 function saveFile(name,text,mime){if(CAP){capWrite(name,text,'DOCUMENTS').then(()=>toast('Gespeichert unter Dokumente/Kleinkram')).catch(()=>shareFile(name,text,mime));return true}
  try{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type:mime}));a.download=name;document.body.appendChild(a);a.click();a.remove();toast('Datei wird gespeichert');return true}catch(e){return false}}
 

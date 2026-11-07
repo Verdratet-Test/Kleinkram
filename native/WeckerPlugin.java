@@ -204,4 +204,23 @@ public class WeckerPlugin extends Plugin {
         }
         call.resolve();
     }
+
+    /** Widget: Daten aus der App übernehmen und alle Widgets neu zeichnen. */
+    @PluginMethod
+    public void widgetDaten(PluginCall call) {
+        Context c = getContext();
+        c.getSharedPreferences(KleinkramWidget.PREFS, Context.MODE_PRIVATE).edit().putString("daten", call.getString("daten", "{}")).apply();
+        try { KleinkramWidget.updateAll(c); } catch (Throwable ignored) { }
+        call.resolve();
+    }
+
+    /** Widget: im Widget abgehakte Routinen abholen (und leeren). */
+    @PluginMethod
+    public void widgetAbgehakt(PluginCall call) {
+        android.content.SharedPreferences sp = getContext().getSharedPreferences(KleinkramWidget.PREFS, Context.MODE_PRIVATE);
+        JSObject r = new JSObject();
+        try { r.put("ticks", new JSObject(sp.getString("abgehakt", "{}"))); } catch (Throwable e) { r.put("ticks", new JSObject()); }
+        sp.edit().putString("abgehakt", "{}").apply();
+        call.resolve(r);
+    }
 }

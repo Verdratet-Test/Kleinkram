@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/kk_w_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="14dp"
+    android:background="@drawable/kk_widget_bg">
+    <TextView android:id="@+id/kk_w_label" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:text="DEINE EINE SACHE" android:textSize="10sp" android:textStyle="bold" android:letterSpacing="0.08" android:textColor="#5F6D64" />
+    <TextView android:id="@+id/kk_w_eins" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:text="Kleinkram öffnen" android:textSize="17sp" android:textStyle="bold" android:textColor="#17201B" android:maxLines="2" android:ellipsize="end" android:layout_marginTop="2dp" />
+    <TextView android:id="@+id/kk_w_sub" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:textSize="12sp" android:textColor="#A8681A" android:maxLines="1" android:ellipsize="end" />
+    <TextView android:id="@+id/kk_w_wecker" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:textSize="12sp" android:textColor="#33443A" android:layout_marginTop="4dp" android:maxLines="1" android:ellipsize="end" />
+    <TextView android:id="@+id/kk_w_r1" android:layout_width="match_parent" android:layout_height="wrap_content" android:textSize="14sp" android:textColor="#17201B" android:paddingTop="5dp" android:paddingBottom="3dp" android:maxLines="1" android:ellipsize="end" />
+    <TextView android:id="@+id/kk_w_r2" android:layout_width="match_parent" android:layout_height="wrap_content" android:textSize="14sp" android:textColor="#17201B" android:paddingTop="3dp" android:paddingBottom="3dp" android:maxLines="1" android:ellipsize="end" />
+    <TextView android:id="@+id/kk_w_r3" android:layout_width="match_parent" android:layout_height="wrap_content" android:textSize="14sp" android:textColor="#17201B" android:paddingTop="3dp" android:paddingBottom="3dp" android:maxLines="1" android:ellipsize="end" />
+    <TextView android:id="@+id/kk_w_r4" android:layout_width="match_parent" android:layout_height="wrap_content" android:textSize="14sp" android:textColor="#17201B" android:paddingTop="3dp" android:paddingBottom="3dp" android:maxLines="1" android:ellipsize="end" />
+    <TextView android:id="@+id/kk_w_more" android:layout_width="match_parent" android:layout_height="wrap_content" android:textSize="11sp" android:textColor="#5F6D64" />
+</LinearLayout>

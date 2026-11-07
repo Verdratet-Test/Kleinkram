@@ -26,6 +26,8 @@ async function weckerPlan(){
  let ch=false;wList().forEach(w=>{if(w.on&&!w.days.length&&w.date){const t=P(w.date);t.setHours(w.h,w.m,0,0);if(t<new Date()){w.on=false;ch=true}}});if(ch)save();
  if(!CAP)return null;
  const regeln=wList().filter(w=>w.on).map(w=>({id:w.id,h:w.h,m:w.m,days:w.days,date:w.days.length?null:w.date||null,label:w.label||'Wecker',sound:w.sound||'standard',task:`${w.task}|${w.level}|${w.n}`}));
+ /* Alarm-Modus: wichtige Aufgaben klingeln wie ein Wecker */
+ const now=new Date();(S.tasks||[]).filter(t=>t.alarm&&t.due&&!t.done&&!t.archived).forEach(t=>{const[h,m]=t.alarm.split(':').map(Number);const at=P(t.due);at.setHours(h,m,0,0);if(at>now)regeln.push({id:'tk-'+t.id,h,m,days:[],date:t.due,label:t.title,sound:S.set.alarmSound||'standard',task:'aufgabe|1|1'})});
  try{const r=await WP().planen({regeln});return r.naechster||null}catch(e){return null}}
 
 /* ---------- Ansicht: Ich → Wecker ---------- */
@@ -40,11 +42,13 @@ async function weckerSheet(){let st=null;if(CAP){try{st=await WP().status()}catc
  ${warn.length?`<div class="banner"><div class="grow"><p class="small"><b>Damit der Wecker sicher klingelt:</b></p>${warn.map(([k,t])=>`<button class="btn sm block" data-ws="${k}" style="margin-top:6px">${t}</button>`).join('')}<p class="small muted" style="margin-top:6px">Manche Handys (z. B. Xiaomi) brauchen zusätzlich „Autostart“ in den App-Einstellungen.</p><button class="btn sm ghost" data-ws="app">App-Einstellungen öffnen</button></div></div>`:''}
  ${wList().map(w=>{const t=w.on&&wNext(w);return`<div class="li"><button class="grow" data-we="${w.id}" style="text-align:left;background:none;border:0;padding:0;color:inherit"><p style="font-size:28px;font-weight:700;line-height:1.1">${wTime(w)}</p><p class="small muted">${esc(w.label||'Wecker')} · ${wDays(w)} · ${WTASK[w.task]}${t?` · ${wUntil(t)}`:''}</p></button><input type="checkbox" class="wk-tgl" data-wo="${w.id}" ${w.on?'checked':''} aria-label="an/aus"></div>`}).join('')}
  <button class="btn pri block" data-we="neu">+ Neuer Wecker</button>
+ <label class="f">Schlafenszeit-Erinnerung<select class="inp" id="wBed">${[[0,'aus'],[7,'7 Std vor dem Wecker'],[7.5,'7,5 Std vor dem Wecker'],[8,'8 Std vor dem Wecker'],[8.5,'8,5 Std vor dem Wecker'],[9,'9 Std vor dem Wecker']].map(([v,l])=>`<option value="${v}" ${(+S.set.bedtime||0)===v?'selected':''}>${l}</option>`).join('')}</select></label>
  <button class="btn block ghost" data-wt="1">Aufgabe ausprobieren${CAP?' (mit Klingeln)':''}</button>`,s=>{
   s.querySelectorAll('[data-ws]').forEach(b=>b.onclick=async()=>{try{await WP().einstellungen({was:b.dataset.ws})}catch(e){}});
   s.querySelectorAll('[data-wo]').forEach(c=>c.onchange=async()=>{const w=wList().find(x=>x.id===c.dataset.wo);w.on=c.checked;if(w.on&&!w.days.length)w.date=iso(wNext(Object.assign({},w,{date:null})));save();await weckerPlan();render();toast(w.on?`Klingelt ${wFmtNext(wNext(w))}`:'Wecker aus');weckerSheet()});
   s.querySelectorAll('[data-we]').forEach(b=>b.onclick=()=>weckerEdit(b.dataset.we));
-  s.querySelector('[data-wt]').onclick=()=>weckerTry()})}
+  s.querySelector('[data-wt]').onclick=()=>weckerTry();
+  s.querySelector('#wBed').onchange=e=>{S.set.bedtime=+e.target.value;save();toast(S.set.bedtime?'Du bekommst abends einen Hinweis':'Schlafenszeit-Erinnerung aus')}})}
 function weckerEditKeep(w,id){weckerEdit(id,w)}
 function weckerEdit(id,keep){const w0=wList().find(x=>x.id===id);const w=keep?keep:w0?Object.assign({},w0,{days:[...w0.days]}):{id:uid(),on:true,h:6,m:30,days:[1,2,3,4,5],label:'Aufstehen',task:'rechnen',level:2,n:3,snooze:1,snMin:5,sound:'standard',wach:true};
  sheet(`<h2>${w0?'Wecker bearbeiten':'Neuer Wecker'}</h2>
@@ -134,6 +138,7 @@ function wTaskRun(box,task,lv,n,done){let i=0;const step=()=>{if(i>=n){done();re
 /* ---------- Klingeln ---------- */
 function wParse(a){const w=wList().find(x=>x.id===a.id);const[t,l,n]=String(a.task||'').split('|');
  if(a.id==='wach')return{w:w||{label:'Bist du wach?',snooze:0},task:'wach',lv:1,n:1};
+ if(/^tks?-/.test(a.id)||t==='aufgabe')return{w:{label:a.label||'Erinnerung',snooze:0},task:'aufgabe',lv:1,n:1,tid:a.id.replace(/^tks?-/,'')};
  return{w:w||{label:a.label||'Wecker',snooze:1,snMin:5,sound:'standard',wach:false},task:WTASK[t]?t:(w&&w.task)||'rechnen',lv:+l||(w&&w.level)||2,n:+n||(w&&w.n)||3}}
 function weckerRing(a){if(!a||!a.id)return;if(WK.cur&&WK.cur.id===a.id&&$('#weckerScr'))return;const p=wParse(a);WK.cur=Object.assign({id:a.id,label:a.label,ortId:p.w&&p.w.ortId},p);
  const el=$('#weckerScr')||document.body.appendChild(Object.assign(document.createElement('div'),{id:'weckerScr'}));
@@ -142,6 +147,11 @@ function weckerRing(a){if(!a||!a.id)return;if(WK.cur&&WK.cur.id===a.id&&$('#weck
   <div id="wkTask" class="wk-task"><button class="btn pri block wk-big" id="wkGo">Aufgabe lösen: ${p.task==='wach'?'Bist du wach?':WTASK[p.task]}</button>
   ${snLeft>0&&a.id!=='wach'?`<button class="btn block" id="wkSn">Schlummern · ${p.w.snMin||5} Min (noch ${snLeft}×)</button>`:''}</div></div>`;
  document.documentElement.classList.add('kk-wecker');
+ if(p.task==='aufgabe'){const tk=(S.tasks||[]).find(x=>x.id===p.tid);el.querySelector('#wkTask').innerHTML=`<p style="text-align:center" class="small">Wichtige Erinnerung${tk&&tk.cost?` · Aufschieben kostet ${eur(tk.cost.eur)}`:''}</p><button class="btn pri block wk-big" id="wkDone">✓ Erledigt</button><button class="btn block" id="wkHour">In 1 Stunde nochmal</button><button class="btn block" id="wkOff">Ausschalten</button>`;
+  const stop=async()=>{try{if(CAP)await WP().stoppen()}catch(e){}};
+  el.querySelector('#wkDone').onclick=async()=>{await stop();if(tk&&!tk.done)completeTask(tk.id);weckerClose();toast('Erledigt – stark!')};
+  el.querySelector('#wkHour').onclick=async()=>{try{await WP().schlummern({id:'tks-'+p.tid,min:60,label:a.label,sound:S.set.alarmSound||'standard',task:'aufgabe|1|1'})}catch(e){}weckerClose();toast('Klingelt in 1 Stunde wieder')};
+  el.querySelector('#wkOff').onclick=async()=>{await stop();weckerClose()};return}
  el.querySelector('#wkGo').onclick=()=>{wPoke();wTaskRun(el.querySelector('#wkTask'),p.task,p.lv,p.n,weckerDone)};
  const sn=el.querySelector('#wkSn');sn&&(sn.onclick=async()=>{WK.snz++;try{await WP().schlummern({id:'snz',min:p.w.snMin||5,label:a.label||p.w.label,sound:p.w.sound||'standard',task:`${p.task}|${p.lv}|${p.n}`})}catch(e){}weckerClose();toast(`Klingelt wieder in ${p.w.snMin||5} Min`)})}
 async function weckerDone(){const c=WK.cur;if(!c)return;wCamStop();if(WK.motion){window.removeEventListener('devicemotion',WK.motion);WK.motion=null}

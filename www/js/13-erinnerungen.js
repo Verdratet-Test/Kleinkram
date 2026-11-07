@@ -16,6 +16,10 @@ function reminderList(){const now=Date.now();const L=[];const add=(id,title,body
   S.routines.filter(r=>r.time).forEach(r=>{const day=rDue(r)&&!r.days.includes(today())?today():rNext(r);const[h,m]=r.time.split(':').map(Number);const d=P(day);d.setHours(h,m,0,0);add(`kk-rt-${r.id}-${day}`,cut(r.title,40),`Routine · ${rLabel(r)}`,d.getTime(),{k:'rt',id:r.id})})}
  S.events.filter(e=>e.remindPrev&&e.date>today()&&diff(today(),e.date)<=8).forEach(e=>{const[h,m]=e.remindPrev.split(':').map(Number);const d=P(addDays(e.date,-1));d.setHours(h,m,0,0);add(`kk-evp-${e.id}`,cut('Morgen: '+e.title,40),`${e.time?e.time+' · ':''}${e.end?'bis '+fmtD(e.end)+' · ':''}${CATS[e.cat]}`,d.getTime(),{k:'ev',id:e.id,d:e.date})});
  S.snooze=(S.snooze||[]).filter(z=>z.at>now);S.snooze.forEach(z=>add(z.id,z.title,z.body,z.at,z.x));
+ /* Schlafenszeit: X Std vor dem frühesten Wecker jeder Nacht */
+ if(+S.set.bedtime&&typeof wList==='function'){const c=[];wList().filter(w=>w.on).forEach(w=>{let f=new Date();for(let i=0;i<3;i++){const t=wNext(w,f);if(!t)break;f=new Date(t.getTime()+6e4);c.push({w,t})}});
+  const nights={};c.sort((a,b)=>a.t-b.t).forEach(x=>{const k=iso(new Date(x.t.getTime()-18*36e5));if(!nights[k])nights[k]=x});
+  Object.values(nights).forEach(({w,t})=>add('kk-bed-'+iso(t),'Zeit fürs Bett 😴',`Dein Wecker${w.label?' „'+w.label+'“':''} klingelt um ${wTime(w)} – in ${String(S.set.bedtime).replace('.',',')} Stunden.`,t.getTime()-S.set.bedtime*36e5,{k:'bed'}))}
  return L}
 const SOUNDS={standard:{n:'Kurz (Handy-Ton)'},gong:{n:'Gong · 4 s',f:'kk_gong.wav'},glocke:{n:'Glocke · 5 s',f:'kk_glocke.wav'},wecker:{n:'Wecker · 9 s',f:'kk_wecker.wav'}};
 const sndKey=()=>SOUNDS[S.set.sound2]?S.set.sound2:'glocke';
@@ -44,7 +48,7 @@ function soundPicker(){return`<div class="grid2" style="grid-template-columns:mi
 let previewAudio=null;function previewSound(){const k=sndKey();if(!SOUNDS[k].f){toast('Standard nutzt den Ton deines Handys.');return}try{previewAudio&&previewAudio.pause();previewAudio=new Audio('sounds/'+SOUNDS[k].f);previewAudio.play().catch(()=>toast('Vorhören geht nur in der App.'))}catch(e){}}
 async function scheduleCap(L){const ch=await ensureChannel();const LN=CapP('LocalNotifications');try{const p=await LN.getPending();if(p.notifications&&p.notifications.length)await LN.cancel({notifications:p.notifications.map(n=>({id:n.id}))})}catch(e){}
  await regActions(LN);if(L.length)try{await LN.schedule({notifications:L.map(x=>{const t=actType(x.x);return notif(Object.assign({id:hid(x.id),title:x.title,body:x.body,schedule:{at:new Date(x.at),allowWhileIdle:true},extra:Object.assign({kk:x.id},x.x||{})},t?{actionTypeId:t}:{}),ch)})})}catch(e){}if(UI.tab==='ich')notifStatus()}
-function scheduleAll(){if(CAP)scheduleCap(reminderList())}
+function scheduleAll(){if(CAP)scheduleCap(reminderList());if(typeof weckerPlan==='function')weckerPlan();if(typeof widgetSync==='function')widgetSync()}
 let schedT;function scheduleSoon(){clearTimeout(schedT);schedT=setTimeout(scheduleAll,1200)}
 
 async function notifStatus(){const box=document.getElementById('notifState');if(!box||!CAP)return;const LN=CapP('LocalNotifications');const tmo=(pr,ms=4000)=>Promise.race([pr,new Promise((_,j)=>setTimeout(()=>j(new Error('keine Antwort')),ms))]);const row=(ok,txt)=>`<p class="small"><span class="chip ${ok?'ok':'crit'}">${ok?'OK':'fehlt'}</span> ${txt}</p>`;let h='';

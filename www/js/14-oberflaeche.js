@@ -1,11 +1,11 @@
 /* Kleinkram · Rendern, Fenster (Sheets), 5-Minuten-Fokus */
 "use strict";
 /* ---------- Rendern ---------- */
-function render(){S.contracts=S.contracts||[];syncRecurring();syncContracts();syncHaus();syncWarranties();const v=$('#view');
+function render(){S.contracts=S.contracts||[];syncRecurring();syncContracts();syncHaus();syncWarranties();if(typeof syncAblauf==='function')syncAblauf();const v=$('#view');
  v.innerHTML=({heute:vHeute,kalender:vKalender,aufgaben:vAufgaben,ablage:vAblage,ich:vIch,aufraeumen:vAufraeumen}[UI.tab]||vHeute)();
  $('#nav').innerHTML=NAV.map(([k,l,p])=>`<button class="${UI.tab===k?'on':''}" data-act="go" data-to="${k}" aria-current="${UI.tab===k?'page':'false'}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${p}</svg>${l}</button>`).join('');
  v.querySelectorAll('img[data-img]').forEach(im=>IDB.get(im.dataset.img).then(src=>{if(src)im.src=src}));
- if(CAP&&UI.tab==='ich')setTimeout(notifStatus,50);onPic(document,'scanInput',scanFile);}
+ if(CAP&&UI.tab==='ich')setTimeout(notifStatus,50);onPic(document,'scanInput',scanFile);if(typeof kopfBind==='function')kopfBind(document);}
 function go(tab){UI.tab=tab;try{history.replaceState(null,'','#'+tab)}catch(e){}render();window.scrollTo(0,0)}
 
 /* ---------- Sheets ---------- */
@@ -66,6 +66,7 @@ function taskSheet(id){const isNew=!id;const t=S.tasks.find(x=>x.id===id)||{id:u
  const stepsHtml=()=>steps.map((s,i)=>`<div class="stepi${s.done?' done':''}"><button class="check${s.done?' on':''}" data-si="${i}" aria-label="Schritt erledigt">${ICON.check}</button><input class="inp" data-st="${i}" value="${esc(s.t)}"><button class="iconbtn" data-sx="${i}" aria-label="Schritt entfernen" style="width:40px;height:40px">${ICON.x}</button></div>`).join('');
  sheet(`<h2>${isNew?'Neue Aufgabe':'Aufgabe'}</h2><label class="f">Was genau?<input class="inp" id="tT" value="${esc(t.title)}" ${isNew?'autofocus':''}></label>
  <div class="grid2">${catSelect('tC',t.cat)}<label class="f">Fällig am<input class="inp" type="date" id="tD" value="${t.due||''}"></label></div>
+ <label class="switch"><span>Alarm-Modus<br><span class="small muted">klingelt wie ein Wecker, auch bei lautlos</span></span><input type="time" class="inp" id="tAl" value="${esc(t.alarm||'')}" style="width:120px"></label>
  <div class="grid2"><label class="f">Aufschieben kostet (€)<input class="inp" type="number" inputmode="decimal" id="tK" value="${t.cost?t.cost.eur:''}" placeholder="0"></label><label class="f">Wofür?<input class="inp" id="tKn" value="${esc(t.cost?t.cost.note:'')}" placeholder="Mahngebühr, Strafe …"></label></div>
  <div class="stack"><div class="row between"><h3>Mini-Schritte</h3><button class="btn sm" id="tSug">Vorschlagen</button></div><div class="steps" id="tSteps">${stepsHtml()}</div><button class="btn sm ghost" id="tAdd" style="align-self:flex-start">+ Schritt</button></div>
  <label class="f">Belohnung dabei (Reizkopplung)<input class="inp" id="tB" value="${esc(t.bundle||'')}" placeholder="z. B. Lieblings-Podcast nur dabei hören"></label>
@@ -77,7 +78,7 @@ function taskSheet(id){const isNew=!id;const t=S.tasks.find(x=>x.id===id)||{id:u
  box.onclick=e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.si!=null){steps[b.dataset.si].done=!steps[b.dataset.si].done;re()}if(b.dataset.sx!=null){steps.splice(+b.dataset.sx,1);re()}};
  s.querySelector('#tSug').onclick=()=>{const title=val('tT')||t.title;steps=steps.filter(x=>x.t.trim()).concat(suggestSteps(title));re()};
  s.querySelector('#tAdd').onclick=()=>{steps.push({t:'',done:false});re();box.querySelector(`[data-st="${steps.length-1}"]`).focus()};
- const collect=()=>{const title=val('tT');if(!title){toast('Gib der Aufgabe einen Titel.');return false}const k=+val('tK');Object.assign(t,{title,cat:val('tC'),due:val('tD')||null,cost:k>0?{eur:k,note:val('tKn')}:null,steps:steps.filter(x=>x.t.trim()),bundle:val('tB'),buddy:val('tBn')?{name:val('tBn'),phone:val('tBp'),by:val('tBy')}:null});delete t.example;if(isNew)S.tasks.push(t);save();return true};
+ const collect=()=>{const title=val('tT');if(!title){toast('Gib der Aufgabe einen Titel.');return false}const k=+val('tK');Object.assign(t,{title,cat:val('tC'),due:val('tD')||null,cost:k>0?{eur:k,note:val('tKn')}:null,steps:steps.filter(x=>x.t.trim()),bundle:val('tB'),buddy:val('tBn')?{name:val('tBn'),phone:val('tBp'),by:val('tBy')}:null,alarm:val('tAl')||null});if(t.alarm&&!t.due){const n=new Date(),[ah,am]=t.alarm.split(':').map(Number);t.due=(ah*60+am>n.getHours()*60+n.getMinutes())?today():addDays(today(),1)}delete t.example;if(isNew)S.tasks.push(t);save();return true};
  s.querySelector('#tS').onclick=()=>{if(collect()){closeSheet();render();toast(t.buddy&&t.buddy.by&&t.due?`Gespeichert. ${t.buddy.name} ist dein Buddy ab ${t.buddy.by} Uhr am ${fmtDate(t.due)}.`:'Gespeichert')}};
  const bn=s.querySelector('#tBnow');bn&&(bn.onclick=()=>{if(collect()){closeSheet();buddySheet(t.id)}});
  const dn=s.querySelector('#tDone');dn&&(dn.onclick=()=>{if(collect()){closeSheet();completeTask(t.id)}});
