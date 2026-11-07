@@ -62,6 +62,17 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-act]');if
  case'brief':briefStart();break;
  case'nkCalc':nkSheet(id,el.dataset.y);break;
  case'kopf':kopfSheet();break;
+ case'tipX':{S.set.tips=S.set.tips||{};S.set.tips[el.dataset.k]=1;save();render();break}
+ case'goFristen':UI.abl='garantie';go('ablage');break;
+ case'goHaus':UI.abl='haus';go('ablage');break;
+ case'goAufr':go('aufraeumen');break;
+ case'motiv':motivSheet();break;
+ case'setDesign':designSheet();break;
+ case'setMods':modsSheet();break;
+ case'setRem':remSheet();break;
+ case'setGen':genSheet();break;
+ case'setData':dataSheet();break;
+ case'setup':setupStart(true);break;
  case'review':reviewSheet();break;
  case'clMediaPerm':AR().requestMedia().then(s=>{CL.st=Object.assign({},CL.st,s);render();if(s.media!=='granted')toast('Ohne Zugriff kann Kleinkram keine Fotos prüfen.')}).catch(e=>toast('Ging nicht: '+(e&&e.message||e)));break;
  case'clFilesPerm':AR().openFilesAccess().catch(e=>toast(e&&e.message||'Ging nicht'));break;
@@ -93,7 +104,7 @@ document.addEventListener('visibilitychange',()=>{if(!document.hidden&&!$('#focu
 /* ---------- Android: Zurück-Taste, Statusleiste ---------- */
 function onBack(){if($('#weckerScr'))return true;if(typeof clViewerOpen==='function'&&clViewerOpen()){clViewerClose();return true}if($('#sheetHost').innerHTML){closeSheet();return true}const fx=document.querySelector('[data-f="close"]');if(fx){fx.click();return true}if(UI.tab==='aufraeumen'){go('ich');return true}if(UI.tab!=='heute'){go('heute');return true}return false}
 if(CAP){try{CapP('App').addListener('backButton',()=>{if(!onBack()){try{CapP('App').minimizeApp()}catch(e){}}})}catch(e){}
- const sb=()=>{const dark=window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches;try{const SB=CapP('StatusBar');SB.setStyle({style:dark?'DARK':'LIGHT'}).catch(()=>{});SB.setBackgroundColor({color:dark?'#121815':'#ECEFE9'}).catch(()=>{})}catch(e){}};
+ const sb=()=>skinBars();
  sb();try{matchMedia('(prefers-color-scheme: dark)').addEventListener('change',sb)}catch(e){}}
 
 /* ---------- Start ---------- */

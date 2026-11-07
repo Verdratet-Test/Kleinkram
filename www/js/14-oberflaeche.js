@@ -2,10 +2,11 @@
 "use strict";
 /* ---------- Rendern ---------- */
 function render(){S.contracts=S.contracts||[];syncRecurring();syncContracts();syncHaus();syncWarranties();if(typeof syncAblauf==='function')syncAblauf();const v=$('#view');
- v.innerHTML=({heute:vHeute,kalender:vKalender,aufgaben:vAufgaben,ablage:vAblage,ich:vIch,aufraeumen:vAufraeumen}[UI.tab]||vHeute)();
- $('#nav').innerHTML=NAV.map(([k,l,p])=>`<button class="${UI.tab===k?'on':''}" data-act="go" data-to="${k}" aria-current="${UI.tab===k?'page':'false'}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${p}</svg>${l}</button>`).join('');
+ if(!navOk(UI.tab))UI.tab='heute';
+ v.innerHTML=({heute:vHeute,kalender:vKalender,aufgaben:vAufgaben,ablage:vAblage,ich:()=>typeof vMehr==='function'?vMehr():'',aufraeumen:vAufraeumen}[UI.tab]||vHeute)();
+ const NV=NAV.filter(n=>navOk(n[0]));$('#nav').style.gridTemplateColumns=`repeat(${NV.length},1fr)`;$('#nav').innerHTML=NV.map(([k,l,p])=>`<button class="${UI.tab===k?'on':''}" data-act="go" data-to="${k}" aria-current="${UI.tab===k?'page':'false'}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${p}</svg>${l}</button>`).join('');
  v.querySelectorAll('img[data-img]').forEach(im=>IDB.get(im.dataset.img).then(src=>{if(src)im.src=src}));
- if(CAP&&UI.tab==='ich')setTimeout(notifStatus,50);onPic(document,'scanInput',scanFile);if(typeof kopfBind==='function')kopfBind(document);}
+onPic(document,'scanInput',scanFile);if(typeof kopfBind==='function')kopfBind(document);}
 function go(tab){UI.tab=tab;try{history.replaceState(null,'','#'+tab)}catch(e){}render();window.scrollTo(0,0)}
 
 /* ---------- Sheets ---------- */
@@ -21,12 +22,14 @@ const catSelect=(id,val)=>`<label class="f">Bereich<select class="inp" id="${id}
 /* Foto: zwei Wege – Kamera (capture) oder Galerie/Dateien (ohne capture, sonst öffnet Android nur die Kamera) */
 const picBtns=(id,cam,cls)=>`<div class="row pic-row"><label class="btn grow ${cls||''}" for="${id}">${ICON.cam} ${cam||'Foto aufnehmen'}</label><label class="btn grow" for="${id}G">${ICON.gal} Aus Galerie</label></div><input type="file" id="${id}" accept="image/*" capture="environment" hidden><input type="file" id="${id}G" accept="image/*" hidden>`;
 function onPic(root,id,fn){[id,id+'G'].forEach(k=>{const el=root.querySelector('#'+k);if(el)el.onchange=e=>{const f=e.target.files[0];e.target.value='';if(f)fn(f)}})}
+/* Erklär-Tipp: einmal zeigen, wegtippbar */
+const tip=(k,html)=>S.set.tips&&S.set.tips[k]?'':`<div class="tip"><span class="tip-ic" aria-hidden="true">💡</span><p class="small grow">${html}</p><button class="tip-x" data-act="tipX" data-k="${k}" aria-label="Tipp ausblenden">${ICON.x}</button></div>`;
 const val=id=>{const e=document.getElementById(id);return e?e.value.trim():''};
 
 /* Schnell eintragen */
-function quickSheet(){sheet(`<h2>Was steht an?</h2><p class="small muted">Sag oder schreib es, wie du es denkst: „Zahnarzt Freitag 14 Uhr“, „Rechnung Stadtwerke bezahlen bis 20.11.“, „Geburtstag Mama 3. März“, „Elektriker Heizung morgen 8 Uhr“.</p>
+function quickSheet(){sheet(`<h2>Was möchtest du festhalten?</h2><p class="small muted">Sag oder schreib es, wie du es denkst: „Zahnarzt Freitag 14 Uhr“, „Rechnung Stadtwerke bezahlen bis 20.11.“, „Geburtstag Mama 3. März“, „Elektriker Heizung morgen 8 Uhr“.</p>
  <div class="big-in"><input class="inp" id="qIn" placeholder="Eintippen oder sprechen" autocomplete="off" autofocus><button class="iconbtn" id="qMic" aria-label="Spracheingabe">${ICON.mic}</button></div>
- <div id="qOut"></div>`,s=>{const inp=s.querySelector('#qIn');
+ <div id="qOut"></div>${typeof plusTiles==='function'?plusTiles():''}`,s=>{const inp=s.querySelector('#qIn');
  const upd=()=>{const p=parseQuick(inp.value);if(inp.dataset.force)p.type=inp.dataset.force;const o=s.querySelector('#qOut');if(!inp.value.trim()){o.innerHTML='';return}
   o.innerHTML=`<div class="stack"><div class="seg"><button class="${p.type==='termin'?'on':''}" data-qt="termin">Termin</button><button class="${p.type==='aufgabe'?'on':''}" data-qt="aufgabe">Aufgabe</button></div>
   <label class="f">Titel<input class="inp" id="qT" value="${esc(p.title)}"></label>
@@ -66,11 +69,13 @@ function taskSheet(id){const isNew=!id;const t=S.tasks.find(x=>x.id===id)||{id:u
  const stepsHtml=()=>steps.map((s,i)=>`<div class="stepi${s.done?' done':''}"><button class="check${s.done?' on':''}" data-si="${i}" aria-label="Schritt erledigt">${ICON.check}</button><input class="inp" data-st="${i}" value="${esc(s.t)}"><button class="iconbtn" data-sx="${i}" aria-label="Schritt entfernen" style="width:40px;height:40px">${ICON.x}</button></div>`).join('');
  sheet(`<h2>${isNew?'Neue Aufgabe':'Aufgabe'}</h2><label class="f">Was genau?<input class="inp" id="tT" value="${esc(t.title)}" ${isNew?'autofocus':''}></label>
  <div class="grid2">${catSelect('tC',t.cat)}<label class="f">Fällig am<input class="inp" type="date" id="tD" value="${t.due||''}"></label></div>
+ <details class="more" ${t.alarm||t.cost||t.bundle||t.buddy||(t.steps||[]).length?'open':''}><summary><b>Mehr Optionen</b> <span class="small muted">Mini-Schritte, Alarm, Kosten, Buddy</span></summary><div class="stack" style="margin-top:10px">
  <label class="switch"><span>Alarm-Modus<br><span class="small muted">klingelt wie ein Wecker, auch bei lautlos</span></span><input type="time" class="inp" id="tAl" value="${esc(t.alarm||'')}" style="width:120px"></label>
  <div class="grid2"><label class="f">Aufschieben kostet (€)<input class="inp" type="number" inputmode="decimal" id="tK" value="${t.cost?t.cost.eur:''}" placeholder="0"></label><label class="f">Wofür?<input class="inp" id="tKn" value="${esc(t.cost?t.cost.note:'')}" placeholder="Mahngebühr, Strafe …"></label></div>
  <div class="stack"><div class="row between"><h3>Mini-Schritte</h3><button class="btn sm" id="tSug">Vorschlagen</button></div><div class="steps" id="tSteps">${stepsHtml()}</div><button class="btn sm ghost" id="tAdd" style="align-self:flex-start">+ Schritt</button></div>
  <label class="f">Belohnung dabei (Reizkopplung)<input class="inp" id="tB" value="${esc(t.bundle||'')}" placeholder="z. B. Lieblings-Podcast nur dabei hören"></label>
  <details ${t.buddy?'open':''}><summary>Buddy, der dich anschubst</summary><div class="stack" style="margin-top:8px"><div class="grid2"><label class="f">Name<input class="inp" id="tBn" value="${esc(t.buddy?t.buddy.name:'')}"></label><label class="f">Telefon<input class="inp" type="tel" id="tBp" value="${esc(t.buddy?t.buddy.phone:'')}"></label></div><label class="f">Angefangen bis (Uhrzeit am Fälligkeitstag)<input class="inp" type="time" id="tBy" value="${esc(t.buddy?t.buddy.by:'')}"></label><p class="small muted">Kleinkram schickt nichts selbst. Ist die Uhrzeit am Fälligkeitstag vorbei und die Aufgabe noch nicht angefangen, bekommst du eine Erinnerung und auf „Heute“ den Vorschlag, ${t.buddy&&t.buddy.name?esc(t.buddy.name):'deinem Buddy'} zu schreiben. Absenden tust du.</p>${t.buddy&&t.buddy.name?`<button class="btn" id="tBnow">Jetzt Nachricht an ${esc(t.buddy.name)}</button>`:''}</div></details>
+ </div></details>
  <div class="row"><button class="btn pri grow" id="tS">Speichern</button>${isNew?'':`<button class="btn" id="tDone">Erledigt</button>`}</div>
  ${isNew?'':`<div class="row"><button class="btn ghost grow" id="tArc">Streichen (ins Archiv)</button><button class="btn ghost danger" id="tX">Löschen</button></div>`}`,s=>{
  const box=s.querySelector('#tSteps');const re=()=>{box.innerHTML=stepsHtml()};

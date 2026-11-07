@@ -40,7 +40,15 @@ const NAV=[['heute','Heute','<path d="M12 3v2M12 19v2M4.2 4.2l1.4 1.4M18.4 18.4l
  ['kalender','Kalender','<rect x="3.5" y="5" width="17" height="15.5" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/>'],
  ['aufgaben','Aufgaben','<path d="M9 6h11M9 12h11M9 18h11"/><path d="M3.5 6l1.5 1.5L7.5 5M3.5 12l1.5 1.5L7.5 11M3.5 18l1.5 1.5 2.5-2.5"/>'],
  ['ablage','Ablage','<path d="M3 7h6l2 2h10v10.5H3z"/><path d="M3 7V5h6l2 2"/>'],
- ['ich','Ich','<circle cx="12" cy="8" r="4"/><path d="M4 21c1-4.5 4.5-6.5 8-6.5s7 2 8 6.5"/>']];
+ ['ich','Mehr','<rect x="4" y="4" width="6.5" height="6.5" rx="1.8"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.8"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.8"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.8"/>']];
+/* Funktionen an/aus (Einrichtung) – was aus ist, verschwindet aus Leisten und Listen */
+const mod=k=>{const m=S&&S.set&&S.set.mods;return !m||m[k]!==false};
+const navOk=k=>k==='kalender'?mod('kalender'):k==='ablage'?(mod('papier')||mod('haus')):true;
+/* Designs: Skin (Farbwelt) + Hell/Dunkel */
+const SKINS={frisch:['Frisch','#5458E8','#8B5CF6','#F3F5FB','#FFFFFF'],klassik:['Klassik','#2F43C4','#2F43C4','#ECEFE9','#FAFBF7'],wald:['Wald','#1E7A4C','#7AA63A','#EDF3EE','#FBFDFB'],sonne:['Sonne','#E4572E','#F2A33A','#FFF5EE','#FFFFFF'],ozean:['Ozean','#0B8BA0','#2F6FE0','#EDF6F8','#FFFFFF'],nacht:['Nacht','#B07CFF','#FF5FA2','#0A0A12','#14141F']};
+function applySkin(){const r=document.documentElement;const sk=(S&&S.set&&S.set.skin)||'frisch';r.dataset.skin=SKINS[sk]?sk:'frisch';const m=(S&&S.set&&S.set.mode)||'system';if(m==='system')delete r.dataset.theme;else r.dataset.theme=m;setTimeout(skinBars,30)}
+function skinBars(){try{const c=getComputedStyle(document.body).backgroundColor.match(/\d+/g).map(Number);const hex='#'+c.slice(0,3).map(v=>v.toString(16).padStart(2,'0')).join('');const dark=(c[0]*.299+c[1]*.587+c[2]*.114)<128;
+ const mt=document.querySelector('meta[name=theme-color]');if(mt)mt.content=hex;if(window.Capacitor&&Capacitor.isNativePlatform&&Capacitor.isNativePlatform()){const SB=CapP('StatusBar');SB.setStyle({style:dark?'DARK':'LIGHT'}).catch(()=>{});SB.setBackgroundColor({color:hex}).catch(()=>{})}}catch(e){}}
 
 /* ---------- Speicher (nur auf diesem Gerät) ---------- */
 const KEY='kleinkram-v1';
@@ -57,6 +65,8 @@ function seed(){const t=today(),y=+t.slice(0,4);const r=(title,cat,every,next,le
 let S;
 try{S=JSON.parse(localStorage.getItem(KEY)||'null')}catch(e){S=null}
 if(!S||S.v!==1)S=seed();
+if(!S.set.mods)S.set.mods={kalender:true,papier:true,haus:(S.objects||[]).length>0,wecker:true,handy:true,spiel:true};
+try{applySkin()}catch(e){}
 try{if(window.Capacitor&&Capacitor.isNativePlatform&&Capacitor.isNativePlatform()&&S.set&&S.set.lock)document.documentElement.classList.add('kk-locked')}catch(e){}
 let storageOK=true;
 if(!S.m3){S.m3=1;S.tasks=S.tasks.filter(t=>!t.example)}  /* Beispiel-Aufgabe entfernen */

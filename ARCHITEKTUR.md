@@ -6,8 +6,8 @@ Kleinkram ist eine Web-App (HTML, CSS, JavaScript ohne Framework), die mit **Cap
 | Ordner / Datei | Inhalt |
 |---|---|
 | `www/index.html` | Grundgerüst: Kopf, Navigation, Platzhalter, lädt CSS und Module |
-| `www/css/app.css` | Gestaltung. Alle Farben als Tokens in `:root`, Dunkelmodus über `prefers-color-scheme` |
-| `www/js/*.js` | Die App in 25 Modulen (siehe unten), werden in Nummern-Reihenfolge geladen |
+| `www/css/app.css` | Gestaltung. Alle Farben als Tokens in `:root`, Dunkelmodus über `prefers-color-scheme`. Sechs Designs über `data-skin` am `<html>` (Frisch, Klassik, Wald, Sonne, Ozean, Nacht), jedes hell und dunkel; Hell/Dunkel/Automatisch über `data-theme`. Alle Designs außer „Klassik“ bekommen den frischen Look (Verlaufskarte, schwebende Leiste, runde Ecken) |
+| `www/js/*.js` | Die App in 26 Modulen (siehe unten), werden in Nummern-Reihenfolge geladen |
 | `www/sounds/` | Signaltöne zum Vorhören in der App |
 | `www/lib/` | Fremdbibliotheken, werden beim Bau aus npm kopiert (nicht im Repo) |
 | `native/` | Android-Teil: `KleinkramNativePlugin` (Kalender-Eintrag, Links öffnen), `AufraeumenPlugin` (Fotos/Dateien), `TexterkennungPlugin` (Google ML Kit, offline), `SperrePlugin` (App-Sperre per Fingerabdruck/Display-Sperre), `MainActivity`, `theme.py` (Statusleiste), `manifest.py` (Berechtigungen), `gradle.py` (zusätzliche Bibliotheken: ML Kit Text/Bildlabels/Gesichter, TensorFlow Lite, Biometrie), `modelle/` (Gesichtsmodell MobileFaceNet, BSD-3); das ImageNet-Modell (EfficientNet-Lite2) lädt der Bau von Google herunter |
@@ -42,6 +42,7 @@ Kleinkram ist eine Web-App (HTML, CSS, JavaScript ohne Framework), die mit **Cap
 | `23-nebenkosten.js` | Betriebskostenabrechnung pro Objekt/Jahr: Kostenarten § 2 BetrKV, Umlageschlüssel (Fläche, Personen, Einheiten, Verbrauch, 30/70, 50/50, Betrag je Mieter), Zeitanteile, Vorauszahlungen, Vorbefüllen aus Belegen, PDF je Mieter mit § 35a-Hinweis |
 | `24-ablaufdaten.js` | Ausweise & Prüftermine (Personalausweis, Pass, Führerschein, TÜV, Karten …) mit Vorlauf-Aufgabe |
 | `25-kopf-leeren.js` | Kopf leeren (Schnellerfassung auf „Heute“, später als Aufgabe/Termin/Notiz einsortieren) und Daten fürs Widget (Android-Teil: `KleinkramWidget`, Layout in `resources/android/layout`) |
+| `26-struktur.js` | Einsteiger-Aufbau: Einrichtung beim ersten Start (Name, Funktionen wählen, Design), Bereich „Mehr“ (Werkzeug-Kacheln + Einstellungen in eigenen Fenstern), Design-Auswahl, Funktionen ein-/ausblenden (`S.set.mods`, Daten bleiben erhalten), „Plus für alles“ mit Foto-Erkennung (GiroCode/Rechnung → Überweisung, viele Datumszeilen → Plan scannen, sonst Dokument) |
 
 Alle Module teilen sich einen globalen Zustand `S` (wird in `localStorage` unter `kleinkram-v1` gespeichert) und den Oberflächen-Zustand `UI`. Neue Funktionen bekommen ein eigenes Modul vor `13-erinnerungen.js` und werden in `index.html` und `sw.js` eingetragen.
 
