@@ -63,15 +63,15 @@ function plusTiles(){return`<div class="plus-or"><span>oder</span></div><div cla
  ${mod('papier')?'<button class="ptile" data-act="brief"><span>✉️</span><b>Brief</b><small>Kündigung & Co.</small></button>':''}
  ${mod('wecker')?'<button class="ptile" data-act="wecker"><span>⏰</span><b>Wecker</b><small>mit Aufgabe</small></button>':''}
  </div><input type="file" id="spCam" accept="image/*" capture="environment" hidden><input type="file" id="spGal" accept="image/*" hidden>`}
-async function smartPhoto(file){let im;try{im=await loadImg(file)}catch(e){toast('Das Bild ließ sich nicht öffnen.');return}const img=canvasOf(im,1400).toDataURL('image/jpeg',.72);let stop=false;
+async function smartPhoto(file){let im;try{im=await prepDoc(file)}catch(e){toast('Das Bild ließ sich nicht öffnen.');return}const img=canvasOf(im,1400).toDataURL('image/jpeg',.72);let stop=false;
  sheet(`<h2>Schaue mir das Foto an …</h2><p class="muted" id="oM">Erkenne, was es ist …</p><span class="bar" style="width:100%"><i id="oB" style="width:8%"></i></span><button class="btn ghost" id="oX">Abbrechen</button>`,s=>s.querySelector('#oX').onclick=()=>{stop=true;closeSheet()});
- try{const q=await readQR(im);if(q){const p=parseEPC(q)||parseBezahlCode(q);if(p&&!stop){closeSheet();invoiceSheet(p,img,'qr');return}}}catch(e){}
- let text='';try{if(CAP){const r=await nativeOCR(canvasOf(im,2600));const by={};(r.lines||[]).forEach(l=>(by[l.block]=by[l.block]||[]).push(l.text));text=Object.keys(by).map(k=>by[k].join('\n')).join('\n')}
-  if(!text.trim())text=await ocr(im,(msg,pr)=>{const m=$('#oM'),b=$('#oB');if(m)m.textContent=msg;if(b)b.style.width=Math.max(8,Math.round(pr*100))+'%'})}catch(e){}
- if(stop)return;closeSheet();
- const L=text.split('\n');const dated=typeof plDates==='function'?L.filter(l=>plDates(l).length).length:0;const inv=parseInvoiceText(text);
+ let qr=null;try{qr=await readPay(im)}catch(e){}if(qr&&!CAP&&!stop){closeSheet();invoiceSheet(qr,img,'qr');return}
+ let res={text:'',lines:[]};try{res=await ocrFull(im,(msg,pr)=>{const m=$('#oM'),b=$('#oB');if(m)m.textContent=msg;if(b)b.style.width=Math.max(8,Math.round(pr*100))+'%'})}catch(e){}
+ if(stop)return;closeSheet();const text=res.text||'';const inv=parseInvoice(res.lines&&res.lines.length?res:{text});
+ if(qr){invoiceSheet(Object.assign({},inv,qr,{alts:{amount:[],iban:[]},src:{due:inv.src.due},amountSure:true}),img,'qr');return}
+ const L=text.split('\n');const dated=typeof plDates==='function'?L.filter(l=>plDates(l).length).length:0;
  if(dated>=5&&!inv.iban){toast('Sieht aus wie ein Plan – suche deine Zeilen');planScan(file);return}
- if(inv.iban||(inv.amount&&/rechnung|mahnung|zahlungserinnerung|zu zahlen|betrag/i.test(text))){invoiceSheet(Object.assign({},inv,{raw:text.slice(0,6000)}),img,'ocr');return}
+ if(inv.iban||(inv.amount&&/rechnung|mahnung|zahlungserinnerung|zu zahlen|betrag/i.test(text))){invoiceSheet(inv,img,'ocr');return}
  newDocSheet({img,text,title:text.trim()?guessDocTitle(text):''});if(!text.trim())toast('Kein Text erkannt – als Dokument ablegen?')}
 document.addEventListener('change',e=>{const t=e.target;if(t&&(t.id==='spCam'||t.id==='spGal')){const f=t.files[0];t.value='';if(f){closeSheet();smartPhoto(f)}}});
 

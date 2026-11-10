@@ -2,6 +2,15 @@
 "use strict";
 /* ---------- Scanner ---------- */
 function loadImg(file){return new Promise((res,rej)=>{const u=URL.createObjectURL(file);const im=new Image();im.onload=()=>res(im);im.onerror=rej;im.src=u})}
+const loadImgSrc=src=>new Promise((res,rej)=>{const im=new Image();im.onload=()=>res(im);im.onerror=rej;im.src=src});
+/* Dokumentfoto vorbereiten. In der App: Blatt im Foto finden und gerade ziehen (OpenCV) – außer das Bild kommt schon fertig aus dem Dokumentenscanner. */
+async function prepDoc(file){let im=await loadImg(file);if(CAP&&!file._scan&&S.set.gerade!==false){try{const r=await CapP('Scan').begradigen({image:canvasOf(im,3000).toDataURL('image/jpeg',.92).split(',')[1]});if(r&&r.gefunden&&r.image){im=await loadImgSrc('data:image/jpeg;base64,'+r.image);im._gerade=true}}catch(e){}}return im}
+/* mehrere Seiten untereinander zu einem Vorschaubild */
+function stackImg(ims,w){if(ims.length===1)return canvasOf(ims[0],1400).toDataURL('image/jpeg',.72);const hs=ims.map(im=>Math.round(im.naturalHeight*w/im.naturalWidth));const c=document.createElement('canvas');c.width=w;c.height=hs.reduce((a,b)=>a+b,0);const x=c.getContext('2d');let y=0;ims.forEach((im,i)=>{x.drawImage(im,0,y,w,hs[i]);y+=hs[i]});return c.toDataURL('image/jpeg',.7)}
+/* Überweisungs-Code (GiroCode / BezahlCode) im Bild – in der App mit Googles Code-Leser, sonst im Browser */
+async function readPay(im){const tryAll=L=>{for(const q of L){const p=parseEPC(q)||parseBezahlCode(q);if(p)return p}return null};
+ if(CAP){try{const r=await CapP('Scan').codes({image:canvasOf(im,2400).toDataURL('image/jpeg',.92).split(',')[1]});const p=tryAll(r.codes||[]);if(p)return p}catch(e){}}
+ const q=await readQR(im);return q?tryAll([q]):null}
 function canvasOf(im,max){const s=Math.min(1,max/Math.max(im.naturalWidth,im.naturalHeight));const c=document.createElement('canvas');c.width=Math.round(im.naturalWidth*s);c.height=Math.round(im.naturalHeight*s);c.getContext('2d').drawImage(im,0,0,c.width,c.height);return c}
 async function readQR(im){try{if('BarcodeDetector' in window){const bd=new BarcodeDetector({formats:['qr_code']});const r=await bd.detect(im);if(r&&r[0])return r[0].rawValue}}catch(e){}
  if(typeof jsQR==='function'){for(const m of[1600,1100,800]){const c=canvasOf(im,m);const d=c.getContext('2d').getImageData(0,0,c.width,c.height);const q=jsQR(d.data,c.width,c.height,{inversionAttempts:'attemptBoth'});if(q&&q.data)return q.data}}return null}
@@ -19,31 +28,48 @@ async function tessWorker(onProg){TESSPROG=onProg||null;if(!window.Tesseract)awa
  return TESS}
 /* Auf dem Handy: Texterkennung von Google (ML Kit) im Gerät, ohne Internet */
 async function nativeOCR(cv){const r=await CapP('Texterkennung').erkennen({image:cv.toDataURL('image/jpeg',.92).split(',')[1]});return r}
-async function ocr(im,onProg){
- if(CAP){try{onProg&&onProg('Lese den Text …',.5);const r=await nativeOCR(canvasOf(im,2600));const L=r.lines||[];const by={};L.forEach(l=>(by[l.block]=by[l.block]||[]).push(l.text));const tx=Object.keys(by).map(k=>by[k].join('\n')).join('\n');if(tx.trim())return tx}catch(e){}}
- await tessWorker(onProg);
- const r=await TESS.recognize(prepCanvas(im));if(!S.ocrReady){S.ocrReady=true;save()}return r.data.text||''}
-async function scanFile(file){toast('Lese die Rechnung …');let im;try{im=await loadImg(file)}catch(e){toast('Das Bild ließ sich nicht öffnen.');return}
- const img=canvasOf(im,1400).toDataURL('image/jpeg',.72);let data={},how='';
- const q=await readQR(im);if(q){const p=parseEPC(q)||parseBezahlCode(q);if(p){data=p;how='qr'}}
- if(!how){const tx=await readText(im);if(tx){data=parseInvoiceText(tx);how='text'}}
+/* Texterkennung mit Lage jeder Zeile: {text, lines:[{text,x,y,w,h,pts,block}], width, height} */
+async function ocrFull(im,onProg){
+ if(CAP){try{onProg&&onProg('Lese den Text …',.5);const r=await nativeOCR(canvasOf(im,2600));const L=r.lines||[];const by={};L.forEach(l=>(by[l.block]=by[l.block]||[]).push(l.text));const tx=Object.keys(by).map(k=>by[k].join('\n')).join('\n');if(tx.trim())return{text:tx,lines:L,width:r.width,height:r.height}}catch(e){}}
+ await tessWorker(onProg);const cv=prepCanvas(im);
+ const r=await TESS.recognize(cv);if(!S.ocrReady){S.ocrReady=true;save()}
+ const L=((r.data&&r.data.lines)||[]).filter(l=>l.bbox&&l.text&&l.text.trim()).map((l,i)=>({text:l.text.trim(),x:l.bbox.x0,y:l.bbox.y0,w:l.bbox.x1-l.bbox.x0,h:l.bbox.y1-l.bbox.y0,block:i}));
+ return{text:(r.data&&r.data.text)||'',lines:L,width:cv.width,height:cv.height}}
+async function ocr(im,onProg){return(await ocrFull(im,onProg)).text}
+/* mehrere Seiten zu einem Blatt zusammenlegen (Seite 2 unter Seite 1) */
+function ocrJoin(pages){if(pages.length===1)return pages[0];const W=pages[0].width||1;let yo=0,bo=0;const lines=[],tx=[];pages.forEach(p=>{const k=W/(p.width||W);(p.lines||[]).forEach(l=>lines.push(Object.assign({},l,{x:l.x*k,y:l.y*k+yo,w:l.w*k,h:l.h*k,block:(l.block||0)+bo,pts:l.pts?l.pts.map((v,i)=>i%2?v*k+yo:v*k):undefined})));yo+=(p.height||0)*k;bo+=1000;tx.push(p.text)});return{text:tx.join('\n'),lines,width:W,height:yo}}
+async function scanFile(file){const files=(Array.isArray(file)?file:[file]).filter(Boolean);toast(files.length>1?`Lese ${files.length} Seiten …`:'Lese die Rechnung …');const ims=[];
+ for(const f of files){try{ims.push(await prepDoc(f))}catch(e){}}if(!ims.length){toast('Das Bild ließ sich nicht öffnen.');return}
+ const img=stackImg(ims,1000);let data={},how='',qr=null;
+ for(const im of ims){try{qr=await readPay(im)}catch(e){}if(qr)break}
+ if(qr&&!CAP){data=qr;how='qr'}
+ if(!how&&!qr){const tx=await readText(ims[0]);if(tx){data=parseInvoiceText(tx);how='text'}}
  if(!how&&(CAP||navigator.onLine!==false||S.ocrReady)){let stop=false;
-  sheet(`<h2>Lese die Rechnung …</h2><p class="muted" id="oM">Starte Texterkennung …</p><span class="bar" style="width:100%"><i id="oB" style="width:3%"></i></span><p class="small muted">${CAP||S.ocrReady?'Dauert ein paar Sekunden.':'Beim ersten Mal wird die Texterkennung einmalig geladen (etwa 5 MB). Danach geht es auch offline. Das Foto bleibt auf deinem Handy.'}</p><button class="btn ghost" id="oX">Überspringen und selbst eintippen</button>`,s=>s.querySelector('#oX').onclick=()=>{stop=true;closeSheet();invoiceSheet(data,img,'')});
-  try{const tx=await ocr(im,(msg,pr)=>{const m=$('#oM'),b=$('#oB');if(m)m.textContent=msg;if(b)b.style.width=Math.max(3,Math.round(pr*100))+'%'});if(stop)return;
-   const d2=parseInvoiceText(tx);if(d2.iban||d2.amount||d2.payee){data=d2;how='ocr'}else how='ocrfail'}catch(e){if(stop)return;how='ocrerr'}
+  sheet(`<h2>Lese die Rechnung …</h2><p class="muted" id="oM">Starte Texterkennung …</p><span class="bar" style="width:100%"><i id="oB" style="width:3%"></i></span><p class="small muted">${CAP||S.ocrReady?'Dauert ein paar Sekunden.':'Beim ersten Mal wird die Texterkennung einmalig geladen (etwa 5 MB). Danach geht es auch offline. Das Foto bleibt auf deinem Handy.'}</p><button class="btn ghost" id="oX">Überspringen und selbst eintippen</button>`,s=>s.querySelector('#oX').onclick=()=>{stop=true;closeSheet();invoiceSheet(qr||data,img,qr?'qr':'')});
+  try{const pages=[];for(let i=0;i<ims.length;i++){pages.push(await ocrFull(ims[i],(msg,pr)=>{const m=$('#oM'),b=$('#oB');if(m)m.textContent=ims.length>1?`Seite ${i+1} von ${ims.length}: ${msg}`:msg;if(b)b.style.width=Math.max(3,Math.round((i+pr)/ims.length*100))+'%'}));if(stop)return}
+   const d2=parseInvoice(ocrJoin(pages));
+   if(qr){data=Object.assign({},d2,qr,{alts:{amount:[],iban:[]},src:{due:d2.src.due},amountSure:true});['payee','ref','bic'].forEach(k=>{if(!qr[k]&&d2[k])data[k]=d2[k]});how='qr'}
+   else if(d2.iban||d2.amount||d2.payee){data=d2;how='ocr'}else how='ocrfail'}catch(e){if(stop)return;if(qr){data=qr;how='qr'}else how='ocrerr'}
   closeSheet()}
+ else if(qr){data=qr;how='qr'}
  invoiceSheet(data,img,how==='ocrfail'||how==='ocrerr'?'':how,undefined,how)}
 function pasteSheet(){sheet(`<h2>Rechnungstext einfügen</h2><p class="small muted">Öffne das Foto in Google Lens oder der Galerie, wähle „Text kopieren“ und füg ihn hier ein. Kleinkram sucht IBAN, Betrag, Rechnungsnummer und Frist heraus.</p><textarea class="inp" id="pT" style="min-height:180px" placeholder="Text hier einfügen" autofocus></textarea><button class="btn pri block" id="pGo">Auslesen</button>`,s=>s.querySelector('#pGo').onclick=()=>{const tx=val('pT');if(!tx){toast('Erst Text einfügen.');return}const d=parseInvoiceText(tx);closeSheet();invoiceSheet(d,null,'paste')})}
 function invoiceSheet(d,img,how,existing,why){const doc=existing||{};const v=(k,dd)=>esc(d[k]??doc[k]??dd??'');const y=new Date().getFullYear();
- const mahn=d.mahnung&&!existing?'<span class="chip crit">Das ist eine Mahnung. Schnell zahlen.</span>':'';const info=mahn+(how==='qr'?'<span class="chip ok">GiroCode auf der Rechnung erkannt</span>':how==='ocr'?'<span class="chip stamp">Text erkannt. Bitte jede Zahl prüfen.</span>':how==='text'||how==='paste'?'<span class="chip stamp">Aus dem Text gelesen. Bitte prüfen.</span>':existing?'':'<span class="chip warn">Kein Code gefunden</span>');
+ const alts=!existing&&d.alts||{amount:[],iban:[]};if(!existing&&(d.bezahlt||d.lastschrift)&&d.paid===undefined)d.paid=true;
+ const mahn=(d.mahnung&&!existing?'<span class="chip crit">Das ist eine Mahnung. Schnell zahlen.</span>':'')+(!existing&&d.lastschrift?'<span class="chip warn">Wird laut Rechnung abgebucht – nicht doppelt überweisen. „Schon bezahlt“ ist angehakt.</span>':!existing&&d.bezahlt?'<span class="chip ok">Laut Rechnung schon bezahlt. „Schon bezahlt“ ist angehakt.</span>':'');
+ const srcBox=k=>!existing&&img&&d.src&&d.src[k]&&d.src[k].length&&d.W?`<div class="src-wrap"><span class="small muted">So steht es auf dem Foto:</span><canvas class="src-crop" data-src="${k}" aria-label="Ausschnitt aus dem Foto"></canvas></div>`:'';
+ const amAlt=alts.amount.filter(v=>v!==d.amount).slice(0,5);const ibAlt=alts.iban.filter(v=>v!==d.iban).slice(0,3);
+ const info=mahn+(how==='qr'?'<span class="chip ok">GiroCode auf der Rechnung erkannt</span>':how==='ocr'?'<span class="chip stamp">Text erkannt. Bitte jede Zahl prüfen.</span>':how==='text'||how==='paste'?'<span class="chip stamp">Aus dem Text gelesen. Bitte prüfen.</span>':existing?'':'<span class="chip warn">Kein Code gefunden</span>');
  sheet(`<h2>${existing?'Rechnung':'Rechnung prüfen'}</h2>${info}
  ${!how&&!existing?`<p class="small muted">${why==='ocrerr'?'Die Texterkennung konnte nicht geladen werden. Beim ersten Mal braucht sie Internet.':why==='ocrfail'?'Auf dem Foto war kaum Text zu erkennen. Tipp: gerade von oben, gutes Licht, ganze Seite.':'Kein Code gefunden.'} Trag die Daten ein oder <button class="btn sm" data-act="pasteInv">Text einfügen</button>. Das Foto wird trotzdem abgelegt.</p>`:''}
  ${img?`<img class="preview-img" src="${img}" alt="Foto der Rechnung">`:''}
  <label class="f">Empfänger<input class="inp" id="iP" value="${v('payee')}"></label>
- <label class="f">IBAN <span id="iOk"></span><input class="inp mono" id="iI" value="${esc(fmtIban(d.iban??doc.iban??''))}" autocapitalize="characters" spellcheck="false"></label>
- <div class="grid2"><label class="f">Betrag (€)<input class="inp mono" type="number" step="0.01" inputmode="decimal" id="iA" value="${v('amount')}"></label><label class="f">BIC (optional)<input class="inp mono" id="iB" value="${v('bic')}" autocapitalize="characters"></label></div>
+ <label class="f">IBAN <span id="iOk"></span><input class="inp mono" id="iI" value="${esc(fmtIban(d.iban??doc.iban??''))}" autocapitalize="characters" spellcheck="false"></label>${srcBox('iban')}
+ ${ibAlt.length?`<div class="alt-row"><span class="small muted">Weitere IBAN im Text:</span>${ibAlt.map(v=>`<button type="button" class="chip-btn mono" data-ib="${v}">${fmtIban(v)}</button>`).join('')}</div>`:''}
+ <div class="grid2"><label class="f">Betrag (€) ${how==='ocr'&&d.amount&&!d.amountSure?'<span class="chip warn">bitte prüfen</span>':''}<input class="inp mono" type="number" step="0.01" inputmode="decimal" id="iA" value="${v('amount')}"></label><label class="f">BIC (optional)<input class="inp mono" id="iB" value="${v('bic')}" autocapitalize="characters"></label></div>${srcBox('amount')}
+ ${d.amountNote&&!existing?`<p class="small muted">${esc(d.amountNote)}.</p>`:''}${amAlt.length?`<div class="alt-row"><span class="small muted">Andere Beträge auf der Rechnung:</span>${amAlt.map(v=>`<button type="button" class="chip-btn mono" data-am="${v}">${eur(v)}</button>`).join('')}</div>`:''}
  <label class="f">Verwendungszweck<input class="inp" id="iR" value="${v('ref')}"></label>
- <div class="grid2"><label class="f">Zahlen bis<input class="inp" type="date" id="iD" value="${v('due',addDays(today(),14))}"></label><label class="f">Mahngebühr, falls zu spät (€)<input class="inp" type="number" inputmode="decimal" id="iF" value="${v('fee',5)}"></label></div>
+ <div class="grid2"><label class="f">Zahlen bis<input class="inp" type="date" id="iD" value="${v('due',addDays(today(),14))}"></label><label class="f">Mahngebühr, falls zu spät (€)<input class="inp" type="number" inputmode="decimal" id="iF" value="${v('fee',5)}"></label></div>${srcBox('due')}${!existing&&how==='ocr'&&!d.due?'<p class="small muted">Keine Frist gefunden – vorgeschlagen sind 14 Tage ab heute.</p>':!existing&&d.dueNote?`<p class="small muted">Frist: ${esc(d.dueNote)}.</p>`:''}
  <label class="f">Steuer<select class="inp" id="iX">${Object.entries(TAXT).map(([k,l])=>`<option value="${k}" ${(d.taxType??doc.taxType??'none')===k?'selected':''}>${l}</option>`).join('')}</select></label>
  <div class="grid2"><label class="f">Davon Arbeitskosten (€)<input class="inp mono" type="number" step="0.01" inputmode="decimal" id="iL" value="${v('labor')}" placeholder="Lohn + Fahrt"></label><label class="f">Jahresordner<input class="inp mono" type="number" id="iY" value="${v('year',y)}"></label></div>
  ${objs().length?`<label class="f">Gehört zu<select class="inp" id="iO"><option value="">–</option>${objs().map(o=>`<option value="${o.id}" ${(d.objId??doc.objId)===o.id?'selected':''}>${esc(o.name)}${isRented(o)?' (vermietet)':''}</option>`).join('')}</select></label>`:''}
@@ -52,6 +78,11 @@ function invoiceSheet(d,img,how,existing,why){const doc=existing||{};const v=(k,
  ${existing?`<button class="btn ghost danger" id="iDel">Löschen</button>`:''}
  ${d.raw?`<details><summary>Erkannter Text</summary><textarea class="inp mono" id="iRaw" readonly style="min-height:160px;font-size:.75rem">${esc(d.raw)}</textarea><button class="btn sm" id="iRawC">Text kopieren</button></details>`:''}
  <p class="small muted">Kleinkram überweist nie selbst. Du prüfst und schickst in deiner Banking-App ab.</p>`,s=>{const rc=s.querySelector('#iRawC');rc&&(rc.onclick=()=>copy(d.raw,s.querySelector('#iRaw')));
+ s.querySelectorAll('[data-am]').forEach(b=>b.onclick=()=>{s.querySelector('#iA').value=b.dataset.am;d.amount=+b.dataset.am;d.amountSure=true;toast('Betrag übernommen')});
+ s.querySelectorAll('[data-ib]').forEach(b=>b.onclick=()=>{const i=s.querySelector('#iI');i.value=fmtIban(b.dataset.ib);i.oninput&&i.oninput()});
+ /* Fundstellen: der Ausschnitt des Fotos, aus dem der Wert gelesen wurde – zum schnellen Vergleichen */
+ const crops=s.querySelectorAll('.src-crop');if(crops.length)loadImgSrc(img).then(im=>{const k=im.naturalWidth/d.W,dpr=Math.min(2,window.devicePixelRatio||1);crops.forEach(c=>{const P=(d.src[c.dataset.src]||[]).map(b=>{const py=b.h*.25,px=b.h*.5;const sx=Math.max(0,(b.x-px)*k),sy=Math.max(0,(b.y-py)*k);return{sx,sy,sw:Math.min(im.naturalWidth-sx,(b.w+2*px)*k),sh:Math.min(im.naturalHeight-sy,(b.h+2*py)*k),lh:b.h*k}}).filter(q=>q.sw>6&&q.sh>4);if(!P.length){c.remove();return}
+   /* Schrift auf gut lesbare Höhe bringen, Stücke nebeneinander */const z=18*dpr/Math.max(4,P[P.length-1].lh),gap=10*dpr;const H=Math.round(Math.max(...P.map(q=>q.sh))*z),W=Math.round(P.reduce((a,q)=>a+q.sw*z,0)+gap*(P.length-1));c.width=W;c.height=H;c.style.width=Math.round(W/dpr)+'px';const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,W,H);let ox=0;P.forEach((q,i)=>{x.drawImage(im,q.sx,q.sy,q.sw,q.sh,ox,Math.round((H-q.sh*z)/2),q.sw*z,q.sh*z);ox+=q.sw*z;if(i<P.length-1){x.fillStyle='#c9ccd6';x.fillRect(ox+gap/2-dpr/2,4*dpr,dpr,H-8*dpr);ox+=gap}})})}).catch(()=>crops.forEach(c=>c.remove()));
  const ib=s.querySelector('#iI'),ok=s.querySelector('#iOk');const chk=()=>{const x=ib.value.replace(/\s/g,'');ok.innerHTML=!x?'':ibanOK(x)?'<span class="chip ok">gültig</span>':'<span class="chip crit">Prüfziffer passt nicht</span>'};ib.oninput=chk;chk();
  const form=()=>({payee:val('iP'),iban:val('iI').replace(/\s/g,'').toUpperCase(),bic:val('iB').toUpperCase(),amount:+val('iA')||0,ref:val('iR'),due:val('iD'),fee:+val('iF')||0,taxType:val('iX'),labor:+val('iL')||0,year:+val('iY')||y,paid:s.querySelector('#iPaid').checked,objId:val('iO')||null});
  s.querySelector('#iQR').onclick=()=>{const f=form();if(!ibanOK(f.iban)){toast('Erst eine gültige IBAN eintragen.');return}giroSheet(f,()=>invoiceSheet(Object.assign({},d,f),img,how,existing))};
@@ -83,7 +114,7 @@ function newDocSheet(pre){pre=pre||{};let img=pre.img||null,raw='',dls=[];const 
  const analyse=txt=>{raw=String(txt||'').slice(0,6000);dls=findDeadlines(raw);showDl()};
  s.querySelector('#dPGo').onclick=()=>analyse(val('dP'));
  if(pre.img||pre.text){const p=s.querySelector('#dI');if(img){p.src=img;p.hidden=false}if(pre.title)s.querySelector('#dT').value=pre.title;analyse(pre.text||'')}
- onPic(s,'dF',async f=>{let im;try{im=await loadImg(f);img=canvasOf(im,1400).toDataURL('image/jpeg',.72);const p=s.querySelector('#dI');p.src=img;p.hidden=false}catch(er){toast('Bild ließ sich nicht öffnen.');return}
+ onPic(s,'dF',async f=>{let im;try{im=await prepDoc(f);img=canvasOf(im,1400).toDataURL('image/jpeg',.72);const p=s.querySelector('#dI');p.src=img;p.hidden=false}catch(er){toast('Bild ließ sich nicht öffnen.');return}
   if(navigator.onLine===false&&!S.ocrReady)return;const o=s.querySelector('#dO');o.hidden=false;o.textContent='Lese den Brief und suche Fristen …';
   try{const tx=await ocr(im,(m,pr)=>{o.textContent=`${m} ${Math.round(pr*100)} %`});o.hidden=true;analyse(tx)}catch(er){o.textContent='Texterkennung ging gerade nicht. Du kannst den Text auch einfügen.'}});
  s.querySelector('#dS').onclick=async()=>{const t=val('dT');if(!t){toast('Gib dem Dokument einen Titel.');return}const o={id:uid(),kind:'dokument',title:t,note:val('dN'),year:+val('dY')||y,taxType:val('dX'),date:today(),hasImg:!!img,raw};if(pre.galId)o.galId=pre.galId;S.docs.push(o);if(img)await IDB.put(o.id,img);
@@ -93,7 +124,7 @@ function newDocSheet(pre){pre=pre||{};let img=pre.img||null,raw='',dls=[];const 
 /* ---------- Spar-Topf & Daten ---------- */
 function potAddSheet(){sheet(`<h2>In den Spar-Topf</h2><p class="small muted">Kosten, die du durch Pünktlichkeit vermieden hast.</p><div class="grid2"><label class="f">Betrag (€)<input class="inp" type="number" step="0.01" inputmode="decimal" id="pA" autofocus></label><label class="f">Wofür?<input class="inp" id="pW" placeholder="z. B. Skonto genutzt"></label></div><button class="btn pri block" id="pS">Hinzufügen</button>`,s=>s.querySelector('#pS').onclick=()=>{const a=+val('pA');if(!(a>0)){toast('Betrag fehlt.');return}S.pot.entries.push({id:uid(),d:today(),eur:a,w:val('pW')||'Selbst eingetragen'});save();closeSheet();render();toast(`${eur(a)} im Topf`)})}
 function payoutSheet(){const p=potNow();confirmSheet('Auszahlen',`${eur(p)} gehören dir. Nimm sie dir wirklich und gönn dir was. Der Topf startet danach bei null.`,'Ausgezahlt',()=>{S.pot.payouts.push({d:today(),eur:p});save();stamp('Gegönnt');render()})}
-async function fullBackup(){const imgs={};const keys=[...S.docs.filter(d=>d.hasImg).map(d=>d.id),...(S.warranties||[]).filter(w=>w.hasImg).map(w=>'w-'+w.id)];for(const k of keys){const v=await IDB.get(k);if(v)imgs[k]=v}return JSON.stringify(Object.assign({},S,{_imgs:imgs}))}
+async function fullBackup(){const imgs={};const keys=[...S.docs.filter(d=>d.hasImg).map(d=>d.id),...(S.warranties||[]).filter(w=>w.hasImg).map(w=>'w-'+w.id),...(S.wOrte||[]).filter(o=>o.v===2).flatMap(o=>[`ort-${o.id}-0`,`ort-${o.id}-1`])];for(const k of keys){const v=await IDB.get(k);if(v)imgs[k]=v}return JSON.stringify(Object.assign({},S,{_imgs:imgs}))}
 function applyBackup(txt){const o=JSON.parse(txt);if(!o||o.v!==1||!Array.isArray(o.tasks))throw 0;const imgs=o._imgs||{};delete o._imgs;S=o;Object.entries(imgs).forEach(([k,v])=>IDB.put(k,v));save();render()}
 function backupSheet(){const data=JSON.stringify(S);sheet(`<h2>Sicherung</h2><p class="small muted">Am sichersten: als Datei speichern. Sie landet in „Downloads“ und bleibt auch erhalten, wenn die App gelöscht wird. Der Text unten enthält keine Fotos.</p><textarea class="inp mono" id="bk" style="min-height:200px;font-size:.75rem" readonly>${esc(data)}</textarea><div class="row"><button class="btn pri grow" id="bkF">Als Datei speichern (mit Fotos)</button></div><div class="row"><button class="btn grow" id="bkS">Teilen</button><button class="btn grow" id="bkC">Kopieren</button></div>`,s=>{s.querySelector('#bkC').onclick=()=>copy(data,s.querySelector('#bk'));s.querySelector('#bkS').onclick=()=>{if(!share(data))copy(data,s.querySelector('#bk'))};
  s.querySelector('#bkF').onclick=async()=>{const full=await fullBackup();if(saveFile(`kleinkram-sicherung-${today()}.json`,full,'application/json')){S.lastBackup=today();save()}}})}

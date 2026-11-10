@@ -22,10 +22,10 @@ function findIbans(txt){const U=String(txt).toUpperCase().replace(/[​·•]/g,
 const findIban=txt=>findIbans(txt)[0]||'';
 const INVMON={jan:1,feb:2,mär:3,mar:3,mrz:3,apr:4,mai:5,jun:6,jul:7,aug:8,sep:9,okt:10,nov:11,dez:12};
 /* alle Datumsangaben einer Zeile: 12.11.2026, 12.11.26, 12. November 2026, 2026-11-12 */
-function invDates(s){const out=[];let m;const add=(d,mo,y,i)=>{y=+y<100?2000+ +y:+y;if(y<2015||y>2040||mo<1||mo>12||d<1||d>31)return;out.push({iso:`${y}-${pad(+mo)}-${pad(+d)}`,i})};
- const a=/(?<!\d)(\d{1,2})\s?[.,]\s?(\d{1,2})\s?[.,]\s?(\d{4}|\d{2})(?!\d)/g;while(m=a.exec(s))add(+m[1],+m[2],m[3],m.index);
- const b=/(?<!\d)(\d{1,2})\.?\s+(Jan|Feb|Mär|Mar|Mrz|Apr|Mai|Jun|Jul|Aug|Sep|Okt|Nov|Dez)[a-zä]*\.?\s+(\d{4})/gi;while(m=b.exec(s))add(+m[1],INVMON[m[2].toLowerCase()],m[3],m.index);
- const c=/(?<!\d)(20\d\d)-(\d{2})-(\d{2})(?!\d)/g;while(m=c.exec(s))add(+m[3],+m[2],m[1],m.index);
+function invDates(s){const out=[];let m;const add=(d,mo,y,i,raw)=>{y=+y<100?2000+ +y:+y;if(y<2015||y>2040||mo<1||mo>12||d<1||d>31)return;out.push({iso:`${y}-${pad(+mo)}-${pad(+d)}`,i,raw})};
+ const a=/(?<!\d)(\d{1,2})\s?[.,]\s?(\d{1,2})\s?[.,]\s?(\d{4}|\d{2})(?!\d)/g;while(m=a.exec(s))add(+m[1],+m[2],m[3],m.index,m[0]);
+ const b=/(?<!\d)(\d{1,2})\.?\s+(Jan|Feb|Mär|Mar|Mrz|Apr|Mai|Jun|Jul|Aug|Sep|Okt|Nov|Dez)[a-zä]*\.?\s+(\d{4})/gi;while(m=b.exec(s))add(+m[1],INVMON[m[2].toLowerCase()],m[3],m.index,m[0]);
+ const c=/(?<!\d)(20\d\d)-(\d{2})-(\d{2})(?!\d)/g;while(m=c.exec(s))add(+m[3],+m[2],m[1],m.index,m[0]);
  return out.sort((x,y)=>x.i-y.i)}
 /* Geldbeträge einer Zeile mit Position; Datum, Prozent, Mengen und Stückpreise zählen nicht */
 function invAmounts(s){const out=[];let m;const dates=[];const dr=/\d{1,2}\s?[.,]\s?\d{1,2}\s?[.,]\s?(?:\d{4}|\d{2})(?!\d)/g;while(m=dr.exec(s))dates.push([m.index,m.index+m[0].length]);
@@ -58,7 +58,11 @@ const INV_STRONG=/(zu\s+zahlen|zahl(?:ungs)?betrag|rechnungs(?:end)?betrag|rechn
 const INV_MED=/(gesamt|summe|brutto|betrag|total|beitrag|preis)/i;
 const INV_NEG=/(netto|zwischensumme|mwst|mehrwertsteuer|umsatzsteuer|\bust\b|rabatt|skonto|abschlag|vorauszahlung|bereits\s+(?:gezahlt|bezahlt|erhalten)|gutschrift|übertrag|einzelpreis|stückpreis|steuerbetrag|zzgl|mahngebühr|mahnkosten|verzugszins|porto|versand)/i;
 function parseInvoice(inp){if(typeof inp==='string')inp={text:inp};const rows=invRows(inp);const txt=rows.map(r=>r.text).join('\n');const flat=inp.text&&inp.lines?inp.text+'\n'+txt:txt;
- const out={raw:txt.slice(0,6000),alts:{amount:[],iban:[]},src:{},W:inp.width||0,H:inp.height||0};const box=r=>inp.lines&&r?{x:r.x,y:r.y,w:r.w,h:r.h}:null;
+ const out={raw:txt.slice(0,6000),alts:{amount:[],iban:[]},src:{},W:inp.width||0,H:inp.height||0};/* Fundstelle fürs Prüfen: der Ausschnitt um das Zeichen i..i+n der Zeile (mit etwas Text davor), dazu bei Tabellen die Bezeichnung links */
+ const box=(r,i,n,lead)=>{if(!inp.lines||!r)return null;let off=0,cell=r.cells[0],ci=0;if(i>=0)for(let k=0;k<r.cells.length;k++){const L=r.cells[k].text.length;if(i<off+L+3||k===r.cells.length-1){cell=r.cells[k];ci=Math.max(0,i-off);break}off+=L+3}
+  const cut=(c,a,b)=>{const L=Math.max(1,c.text.length);a=Math.max(0,a);b=Math.min(L,b);return{x:c.x+c.w*a/L,y:c.y,w:Math.max(c.h,c.w*(b-a)/L),h:c.h}};
+  const out=[];if(i<0){out.push(cut(cell,0,46));return out}
+  if(cell!==r.cells[0]&&lead!==false)out.push(cut(r.cells[0],0,30));out.push(cut(cell,ci-(lead===false?4:24),ci+(n||8)+2));return out};
  const t0=today();const hs=rows.map(r=>r.lh||r.h).sort((a,b)=>a-b);const medH=hs[hs.length>>1]||16;
  /* --- Hinweise --- */
  out.mahnung=/(?<![\wäöüß])(\d\.\s*)?(mahnung|zahlungserinnerung)(?![\wäöüß])/i.test(txt);
@@ -68,7 +72,7 @@ function parseInvoice(inp){if(typeof inp==='string')inp={text:inp};const rows=in
  const own=(typeof S==='object'&&S&&S.set&&S.set.me&&S.set.me.iban||'').replace(/\s/g,'').toUpperCase();const ib=[];
  rows.forEach((r,k)=>{findIbans(r.text).forEach(x=>{if(ib.some(q=>q.iban===x))return;const ctx=(rows[k-1]?rows[k-1].text:'')+' '+r.text;ib.push({iban:x,row:r,mine:x===own||/(ihr(?:e[mnrs]?)?\s+(?:konto|iban|bankverbindung)|von\s+ihrem|abbuch|lastschrift|mandat|zahlungspflichtig|eingezogen|einziehen)/i.test(ctx)})})});
  findIbans(flat.replace(/\n/g,' ')).forEach(x=>{if(!ib.some(q=>q.iban===x))ib.push({iban:x,row:null,mine:x===own})});
- const pick=ib.find(x=>!x.mine)||(!out.lastschrift?ib[0]:null);if(pick){out.iban=pick.iban;if(pick.row)out.src.iban=box(pick.row)}else out.iban='';out.alts.iban=ib.map(x=>x.iban);
+ const pick=ib.find(x=>!x.mine)||(!out.lastschrift?ib[0]:null);if(pick){out.iban=pick.iban;if(pick.row){const u=pick.row.text.toUpperCase(),at=u.indexOf(pick.iban.slice(0,4)),a2=at<0?u.search(/[A-Z0O]{2}\s?[0-9OISBZ]{2}\s?\d{4}/):at;out.src.iban=box(pick.row,Math.max(0,a2),34,false)}}else out.iban='';out.alts.iban=ib.map(x=>x.iban);
  const bic=txt.match(/(?:BIC|SWIFT)\s*[:.\-/]?\s*(?:SWIFT)?\s*[:.]?\s*([A-Z]{4}\s?DE\s?[A-Z0-9]{2}\s?(?:[A-Z0-9]{3})?|[A-Z]{6}[A-Z0-9]{2}(?:[A-Z0-9]{3})?)\b/);if(bic)out.bic=bic[1].replace(/\s/g,'').toUpperCase();
  /* --- Betrag: jede Zahl bekommt Punkte --- */
  const cand=[];rows.forEach((r,k)=>{if(findIbans(r.text).length&&!/(betrag|summe|gesamt)/i.test(r.text))return;invAmounts(r.text).forEach(a=>cand.push(Object.assign({row:r,k,sc:0},a)))});
@@ -85,7 +89,7 @@ function parseInvoice(inp){if(typeof inp==='string')inp={text:inp};const rows=in
  bru.forEach(b=>pd.forEach(p=>{const d=Math.round((b.v-p.v)*100)/100;if(d<=0)return;const hit=cand.filter(c=>near(c.v,d,.011));if(hit.length)hit.forEach(c=>c.sc+=6);else{const tr=rows.findIndex(r=>INV_TOP.test(r.text)&&!invAmounts(r.text).length&&/\d/.test(r.text));if(tr>=0&&!out.calc){out.calc=d;cand.push({row:rows[tr],k:tr,v:d,i:0,cur:true,sc:21,calc:true})}}}));
  const maxV=Math.max(0,...cand.map(c=>c.v));cand.forEach(c=>{c.sc+=c.k/Math.max(1,rows.length)*1.5;if(c.v===maxV&&cand.length>1)c.sc+=1.2});
  cand.sort((a,b)=>b.sc-a.sc||b.v-a.v);const best=cand[0];
- if(best){out.amount=best.v;out.src.amount=box(best.row);if(best.calc)out.amountNote='Betrag war nicht sauber lesbar – aus Rechnungsbetrag minus Abschlägen errechnet';out.amountSure=best.sc>=9&&(!cand[1]||cand[1].v===best.v||best.sc-cand.find(c=>c.v!==best.v).sc>=3)}else out.amount='';
+ if(best){out.amount=best.v;out.src.amount=best.calc?box(best.row,-1):box(best.row,best.i,10);if(best.calc)out.amountNote='Betrag war nicht sauber lesbar – aus Rechnungsbetrag minus Abschlägen errechnet';out.amountSure=best.sc>=9&&(!cand[1]||cand[1].v===best.v||best.sc-cand.find(c=>c.v!==best.v).sc>=3)}else out.amount='';
  out.alts.amount=[...new Set(cand.map(c=>c.v))].slice(0,6);
  /* --- Rechnungsdatum und Frist --- */
  const allD=[];rows.forEach((r,k)=>invDates(r.text).forEach(d=>allD.push(Object.assign({row:r,k},d))));
@@ -96,9 +100,9 @@ function parseInvoice(inp){if(typeof inp==='string')inp={text:inp};const rows=in
  const DUE=/(zahlbar\s+(?:bis|zum|am)|fällig(?:keit)?(?:sdatum)?\s*(?:am|bis|zum|:)?|faellig|zahlungsziel|zahlungstermin|zahlung\s+bis|zahlen\s+sie\s+bis|begleichen\s+sie[^\n]{0,40}?bis|überweisen\s+sie[^\n]{0,60}?bis|bis\s+spätestens|spätestens\s+(?:bis|zum|am)|bis\s+zum|abgebucht\s+am|abbuchung\s+(?:am|zum)|eingezogen\s+am|einzug\s+(?:am|zum)|buchen\s+wir\s+(?:am|zum)|ziehen\s+wir\s+(?:am|zum)|due\s+date)/i;
  let due=null;for(let k=0;k<rows.length&&!due;k++){const r=rows[k];const m=r.text.match(DUE);if(!m)continue;const ds=invDates(r.text).filter(d=>d.i>=m.index);if(ds[0]){due=Object.assign({row:r},ds[0]);break}
   const lc=r.cells.find(q=>DUE.test(q.text));for(let j=k+1;j<=k+2&&j<rows.length&&!due;j++){const n=rows[j];if(n.cy-r.cy>medH*4)break;let cs=n.cells.filter(q=>invDates(q.text).length);if(lc&&inp.lines)cs=cs.filter(q=>q.x0<lc.x0+lc.lw+medH*2&&lc.x0<q.x0+q.lw+medH*2);if(cs[0])due=Object.assign({row:n},invDates(cs[0].text)[0])}}
- if(due&&sane(due.iso)&&(!out.inv||due.iso>=out.inv)){out.due=due.iso;out.src.due=box(due.row)}
+ if(due&&sane(due.iso)&&(!out.inv||due.iso>=out.inv)){out.due=due.iso;out.src.due=box(due.row,due.row.text.indexOf(due.raw),due.raw.length)}
  else{const n=txt.match(/(?:innerhalb|binnen)\s+(?:von\s+)?(\d{1,3})\s+(?:Kalender|Werk)?\s?Tagen?|Zahlungsziel\s*:?\s*(\d{1,3})\s+Tage|(\d{1,3})\s+Tage\s+(?:netto|ohne\s+Abzug|nach\s+(?:Erhalt|Rechnungs))/i);
-  if(n){const d=+(n[1]||n[2]||n[3]);const r=rows.find(r=>r.text.includes(n[0].slice(0,20)));out.due=addDays(out.inv||t0,d);if(out.due<t0)out.dueNote='Frist laut Rechnung schon vorbei';if(r)out.src.due=box(r)}
+  if(n){const d=+(n[1]||n[2]||n[3]);const r=rows.find(r=>r.text.includes(n[0].slice(0,20)));out.due=addDays(out.inv||t0,d);if(out.due<t0)out.dueNote='Frist laut Rechnung schon vorbei';if(r)out.src.due=box(r,r.text.indexOf(n[0].slice(0,20)),n[0].length)}
   else if(/(sofort\s+(?:fällig|zahlbar)|zahlbar\s+sofort|sofort\s+(?:ohne|rein\s+netto)|nach\s+erhalt)/i.test(txt)){out.due=addDays(t0,3);out.dueNote='laut Rechnung sofort fällig'}}
  /* --- Nummern: Wert steht hinter dem Stichwort, im Feld rechts daneben oder darunter --- */
  const NUMV=/[A-Z]{0,5}[-\/ ]?\d[\dA-Z\-\/.]{1,}\d/i;const numOk=t=>t&&(t[0].match(/\d/g)||[]).length>=4&&!invDates(t[0]).length?t[0].replace(/[.\-\/]$/,''):'';

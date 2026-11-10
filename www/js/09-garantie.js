@@ -15,7 +15,7 @@ function warrantySheet(id){const isNew=!id;S.warranties=S.warranties||[];const w
  <p class="small muted">Gesetzliche Gewährleistung beim Händler: 2 Jahre. Herstellergarantien können länger sein. 30 Tage vor Ablauf erinnert Kleinkram dich.</p>
  <div class="row"><button class="btn pri grow" id="wSave">Speichern</button>${isNew?'':'<button class="btn danger" id="wX">Löschen</button>'}</div>`,s=>{
  if(w.hasImg)IDB.get('w-'+w.id).then(src=>{if(src)s.querySelector('#wI').src=src});
- onPic(s,'wF',async f=>{try{const im=await loadImg(f);img=canvasOf(im,1400).toDataURL('image/jpeg',.72);const p=s.querySelector('#wI');p.src=img;p.hidden=false}catch(er){toast('Bild ließ sich nicht öffnen.')}});
+ onPic(s,'wF',async f=>{try{const im=await prepDoc(f);img=canvasOf(im,1400).toDataURL('image/jpeg',.72);const p=s.querySelector('#wI');p.src=img;p.hidden=false}catch(er){toast('Bild ließ sich nicht öffnen.')}});
  s.querySelector('#wSave').onclick=async()=>{const n=val('wN'),b=val('wB');if(!n||!b){toast('Name und Kaufdatum, bitte.');return}const old=wEnd(w);Object.assign(w,{name:n,buy:b,months:+val('wM'),shop:val('wS'),price:+val('wP')||'',sn:val('wR'),note:val('wO')});if(wEnd(w)!==old)w.lastGen=null;
   if(img){w.hasImg=true;await IDB.put('w-'+w.id,img)}if(isNew){S.warranties.push(w);pts(5,'Garantie erfasst')}save();closeSheet();render();const k=diff(today(),wEnd(w));toast(k<0?'Garantie ist schon abgelaufen':`Garantie bis ${fmtDate(wEnd(w))}`)};
  const x=s.querySelector('#wX');x&&(x.onclick=()=>confirmSheet('Garantie löschen?','Eintrag und Foto verschwinden.','Löschen',()=>{S.warranties=S.warranties.filter(z=>z.id!==w.id);IDB.del('w-'+w.id);save();render()},true))})}

@@ -31,6 +31,7 @@ import org.opencv.android.OpenCVLoader;
 import org.opencv.android.Utils;
 import org.opencv.calib3d.Calib3d;
 import org.opencv.core.Core;
+import org.opencv.core.CvType;
 import org.opencv.core.DMatch;
 import org.opencv.core.KeyPoint;
 import org.opencv.core.Mat;
@@ -305,6 +306,17 @@ public class ScanPlugin extends Plugin {
             }
         }
         if (bestQ == null) return null;
+        // Nur zuschneiden, wenn sich das Blatt vom Untergrund abhebt – sonst ist es z. B. ein Kasten mitten auf der Seite.
+        Mat inside = Mat.zeros(g.size(), CvType.CV_8UC1);
+        Point[] qi = new Point[4];
+        for (int i = 0; i < 4; i++) qi[i] = new Point(Math.round(bestQ[i].x), Math.round(bestQ[i].y));
+        Imgproc.fillConvexPoly(inside, new MatOfPoint(qi), new Scalar(255));
+        Mat outside = new Mat();
+        Core.bitwise_not(inside, outside);
+        if (Core.countNonZero(outside) > 0.03 * W * H) {
+            double mi = Core.mean(g, inside).val[0], mo = Core.mean(g, outside).val[0];
+            if (Math.abs(mi - mo) < 15) return null;
+        }
         Point[] out = new Point[4];
         for (int i = 0; i < 4; i++) out[i] = new Point(bestQ[i].x / k, bestQ[i].y / k);
         return out;
