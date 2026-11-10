@@ -12,6 +12,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(TexterkennungPlugin.class);
         registerPlugin(SperrePlugin.class);
         registerPlugin(WeckerPlugin.class);
+        registerPlugin(ScanPlugin.class);
         super.onCreate(savedInstanceState);
         /* vom Wecker geöffnet: über dem Sperrbildschirm zeigen und Bildschirm anschalten */
         if (getIntent() != null && getIntent().hasExtra("kk_wecker") && WeckerService.curId != null) {
