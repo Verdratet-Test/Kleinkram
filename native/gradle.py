@@ -17,6 +17,12 @@ DEPS = [
     # Gesichter finden (ML Kit) und wiedererkennen (MobileFaceNet über TensorFlow Lite) – alles im Gerät
     "implementation 'com.google.mlkit:face-detection:16.1.7'",
     "implementation 'org.tensorflow:tensorflow-lite:2.16.1'",
+    # Dokumentenscanner von Google (Kanten finden, zuschneiden, entzerren) – läuft im Gerät, kommt über die Play-Dienste
+    "implementation 'com.google.android.gms:play-services-mlkit-document-scanner:16.0.0'",
+    # QR-Codes (GiroCode auf Rechnungen) zuverlässig lesen, Modell in der App
+    "implementation 'com.google.mlkit:barcode-scanning:17.3.0'",
+    # OpenCV: Blatt gerade ziehen, Ort fürs Wecker-Foto sicher wiedererkennen
+    "implementation 'org.opencv:opencv:4.10.0'",
 ]
 
 path = sys.argv[1]
@@ -35,6 +41,6 @@ if "abiFilters" not in src:
 if "noCompress" not in src:
     a = re.search(r"^android\s*\{", src, re.M)
     if a:
-        src = src[: a.end()] + "\n    androidResources { noCompress 'tflite' }\n    packaging { jniLibs { pickFirsts += ['**/libtensorflowlite_jni.so'] } }" + src[a.end():]
+        src = src[: a.end()] + "\n    androidResources { noCompress 'tflite' }\n    packaging { jniLibs { pickFirsts += ['**/libtensorflowlite_jni.so', '**/libc++_shared.so'] } }" + src[a.end():]
 open(path, "w", encoding="utf-8").write(src)
 print("build.gradle ergänzt:", add.strip() or "(schon vorhanden)")

@@ -17,11 +17,23 @@ function swipeClose(sh){let y0=null,dy=0,drag=false;const bg=sh.parentElement;
  sh.addEventListener('touchmove',e=>{if(y0===null)return;dy=e.touches[0].clientY-y0;if(dy<=0&&!drag){y0=null;return}if(dy>8)drag=true;if(drag){e.preventDefault();sh.classList.add('drag');sh.classList.remove('back');sh.style.transform=`translateY(${Math.max(0,dy)}px)`;bg.style.background=`rgba(10,14,12,${Math.max(.05,.45-dy/700)})`}},{passive:false});
  sh.addEventListener('touchend',()=>{if(y0===null)return;y0=null;if(drag&&dy>110){sh.style.transform='translateY(100%)';setTimeout(closeSheet,120)}else{sh.classList.remove('drag');sh.classList.add('back');sh.style.transform='';bg.style.background=''}drag=false});}
 function closeSheet(){$('#sheetHost').innerHTML='';sheetClose&&sheetClose();sheetClose=null}
-function confirmSheet(title,text,okLabel,onOk,danger){sheet(`<h2>${esc(title)}</h2><p class="muted">${esc(text)}</p><div class="row"><button class="btn grow" data-act="close">Abbrechen</button><button class="btn grow ${danger?'danger':'pri'}" id="cOk">${esc(okLabel)}</button></div>`,s=>s.querySelector('#cOk').onclick=()=>{closeSheet();onOk()})}
+function confirmSheet(title,text,okLabel,onOk,danger,onCancel){sheet(`<h2>${esc(title)}</h2><p class="muted">${esc(text)}</p><div class="row"><button class="btn grow" ${onCancel?'id="cNo"':'data-act="close"'}>Abbrechen</button><button class="btn grow ${danger?'danger':'pri'}" id="cOk">${esc(okLabel)}</button></div>`,s=>{s.querySelector('#cOk').onclick=()=>{closeSheet();onOk()};const n=s.querySelector('#cNo');if(n)n.onclick=()=>{closeSheet();onCancel()}})}
 const catSelect=(id,val)=>`<label class="f">Bereich<select class="inp" id="${id}">${Object.keys(CATS).map(c=>`<option value="${c}" ${val===c?'selected':''}>${CATS[c]}${CATHINT[c]?` (${CATHINT[c]})`:''}</option>`).join('')}</select></label>`;
 /* Foto: zwei Wege – Kamera (capture) oder Galerie/Dateien (ohne capture, sonst öffnet Android nur die Kamera) */
 const picBtns=(id,cam,cls)=>`<div class="row pic-row"><label class="btn grow ${cls||''}" for="${id}">${ICON.cam} ${cam||'Foto aufnehmen'}</label><label class="btn grow" for="${id}G">${ICON.gal} Aus Galerie</label></div><input type="file" id="${id}" accept="image/*" capture="environment" hidden><input type="file" id="${id}G" accept="image/*" hidden>`;
-function onPic(root,id,fn){[id,id+'G'].forEach(k=>{const el=root.querySelector('#'+k);if(el)el.onchange=e=>{const f=e.target.files[0];e.target.value='';if(f)fn(f)}})}
+const PIC_FN={};
+function onPic(root,id,fn){PIC_FN[id]=fn;[id,id+'G'].forEach(k=>{const el=root.querySelector('#'+k);if(el)el.onchange=e=>{const f=e.target.files[0];e.target.value='';if(f)fn(f)}})}
+/* In der App öffnet „Foto aufnehmen“ bei Dokumenten Googles Dokumentenscanner: Kanten werden erkannt, das Blatt zugeschnitten und entzerrt.
+   Läuft im Gerät. Ist er nicht verfügbar (oder in den Einstellungen abgeschaltet), kommt die normale Kamera. */
+const SCAN_IDS={scanInput:3,dF:1,wF:1,spCam:1};let SCAN_OFF=false;
+function b64File(b64,name){const bin=atob(b64),u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);const f=new File([u],name,{type:'image/jpeg'});f._scan=true;return f}
+document.addEventListener('click',async e=>{if(!CAP||SCAN_OFF||S.set.scanner===false)return;const lab=e.target.closest&&e.target.closest('label[for]');if(!lab)return;const id=lab.getAttribute('for');if(!(id in SCAN_IDS))return;const inp=document.getElementById(id);if(!inp)return;
+ e.preventDefault();e.stopPropagation();let r;
+ try{r=await CapP('Scan').scannen({seiten:SCAN_IDS[id]})}catch(err){SCAN_OFF=true;toast('Der Dokumentenscanner ist gerade nicht bereit – es geht mit der normalen Kamera weiter.');try{inp.click()}catch(x){}return}
+ if(!r||r.abgebrochen||!r.bilder||!r.bilder.length)return;const files=r.bilder.map((b,i)=>b64File(b,`scan-${i+1}.jpg`));
+ if(id==='scanInput'){scanFile(files);return}
+ if(id==='spCam'&&typeof smartPhoto==='function'){closeSheet();smartPhoto(files[0]);return}
+ const fn=PIC_FN[id];if(fn)fn(files[0])},true);
 /* Erklär-Tipp: einmal zeigen, wegtippbar */
 const tip=(k,html)=>S.set.tips&&S.set.tips[k]?'':`<div class="tip"><span class="tip-ic" aria-hidden="true">💡</span><p class="small grow">${html}</p><button class="tip-x" data-act="tipX" data-k="${k}" aria-label="Tipp ausblenden">${ICON.x}</button></div>`;
 const val=id=>{const e=document.getElementById(id);return e?e.value.trim():''};

@@ -67,8 +67,10 @@ function weckerEdit(id,keep){const w0=wList().find(x=>x.id===id);const w=keep?ke
   s.querySelector('#wD').onclick=e=>{const b=e.target.closest('[data-d]');if(!b)return;const d=+b.dataset.d;w.days=w.days.includes(d)?w.days.filter(x=>x!==d):[...w.days,d].sort();b.classList.toggle('on')};
   const codeBox=()=>{const k=s.querySelector('[name=wk]:checked').value;const O=wOrte();if(k!=='ort'){s.querySelector('#wCode').innerHTML='';return}
    s.querySelector('#wCode').innerHTML=`<div class="banner"><div class="grow"><p class="small"><b>Welcher Ort?</b> Morgens musst du genau diese Stelle fotografieren.</p>
-    ${O.length?`<div class="stack" style="margin-top:6px">${O.map(o=>`<label class="switch wk-radio" style="align-items:center"><input type="radio" name="wo" value="${o.id}" ${(w.ortId||O[0].id)===o.id?'checked':''}>${o.img?`<img src="${o.img}" alt="" style="width:56px;height:56px;object-fit:cover;border-radius:8px">`:''}<span class="grow"><b>${esc(o.name)}</b></span></label>`).join('')}</div>`:'<p class="small muted">Noch kein Ort festgelegt.</p>'}
+    ${O.length?`<div class="stack" style="margin-top:6px">${O.map(o=>`<label class="switch wk-radio" style="align-items:center"><input type="radio" name="wo" value="${o.id}" ${(w.ortId||O[0].id)===o.id?'checked':''}>${o.img?`<img src="${o.img}" alt="" style="width:56px;height:56px;object-fit:cover;border-radius:8px">`:''}<span class="grow"><b>${esc(o.name)}</b>${CAP&&o.v!==2?'<br><span class="small" style="color:var(--warn);font-weight:600">Alte, ungenaue Erkennung – bitte entfernen und neu festlegen</span>':''}</span><button type="button" class="btn sm ghost" data-od="${o.id}" aria-label="Ort entfernen">Entfernen</button></label>`).join('')}</div>`:'<p class="small muted">Noch kein Ort festgelegt.</p>'}
     <button class="btn sm block" id="wON" style="margin-top:8px">+ Ort festlegen (2 Fotos)</button></div></div>`;
+   const keep=()=>{const[h,m]=(val('wT')||'06:30').split(':').map(Number);Object.assign(w,{h,m,label:val('wL'),task:'ort',level:+val('wLv'),n:+val('wN'),snooze:+val('wS'),snMin:+val('wSm'),sound:val('wSo'),wach:s.querySelector('#wW').checked});const c=s.querySelector('[name=wo]:checked');if(c)w.ortId=c.value};
+   s.querySelectorAll('[data-od]').forEach(b=>b.onclick=e=>{e.preventDefault();const o=wOrte().find(x=>x.id===b.dataset.od);keep();confirmSheet(`Ort „${o?o.name:''}“ entfernen?`,'Die Vergleichsfotos werden gelöscht. Wecker mit diesem Ort nehmen den nächsten Ort oder eine Rechenaufgabe.','Entfernen',()=>{wOrtDel(b.dataset.od);if(w.ortId===b.dataset.od)w.ortId=(wOrte()[0]||{}).id||null;weckerEditKeep(w,id)},true,()=>weckerEditKeep(w,id))});
    s.querySelector('#wON').onclick=()=>{const[h,m]=(val('wT')||'06:30').split(':').map(Number);Object.assign(w,{h,m,label:val('wL'),task:'ort',level:+val('wLv'),n:+val('wN'),snooze:+val('wS'),snMin:+val('wSm'),sound:val('wSo'),wach:s.querySelector('#wW').checked});weckerOrtSheet(o=>{w.ortId=o.id;weckerEditKeep(w,id)},()=>weckerEditKeep(w,id))}};
   s.querySelector('#wK').onchange=codeBox;codeBox();
   s.querySelector('#wGo').onclick=async()=>{const[h,m]=(val('wT')||'06:30').split(':').map(Number);Object.assign(w,{h,m,label:val('wL')||'Wecker',task:s.querySelector('[name=wk]:checked').value,level:+val('wLv'),n:+val('wN'),snooze:+val('wS'),snMin:+val('wSm'),sound:val('wSo'),wach:s.querySelector('#wW').checked,on:true});
@@ -94,20 +96,35 @@ async function wFeat(src,native){const cv=document.createElement('canvas');const
 function wSim(a,b){let hs=0;for(let i=0;i<64;i++)hs+=Math.sqrt((a.h[i]||0)*(b.h[i]||0));let gc=0;for(let i=0;i<a.g.length;i++)gc+=a.g[i]*b.g[i];gc=Math.max(0,gc/a.g.length);
  if(a.n&&b.n){const ks=new Set([...Object.keys(a.n),...Object.keys(b.n)]);let dt=0,na=0,nb=0;ks.forEach(k=>{const x=a.n[k]||0,y=b.n[k]||0;dt+=x*y;na+=x*x;nb+=y*y});const lc=na&&nb?dt/Math.sqrt(na*nb):0;return .45*lc+.25*hs+.30*gc}
  return .45*hs+.55*gc}
-/* Ort festlegen: 2 Fotos derselben Stelle (leicht anderer Winkel). Daraus ergibt sich, wie ähnlich ein Treffer sein muss. */
-function weckerOrtSheet(done,back){const refs=[];let img=null;
- sheet(`<h2>Ort festlegen</h2><p class="small muted">Wähle eine Stelle, zu der du morgens gehen musst – z. B. Waschbecken, Kaffeemaschine, Haustür. Etwas mit klarem Aussehen klappt am besten (nicht eine weiße Wand). Das Foto bleibt in Kleinkram, nicht in der Galerie.</p>
+/* Ort festlegen: 2 Fotos derselben Stelle (leicht anderer Winkel).
+   In der App: OpenCV sucht markante Punkte (Kanten, Ecken, Muster) und prüft, ob sie geometrisch zusammenpassen –
+   ein anderer Gegenstand mit ähnlicher Farbe geht damit nicht mehr durch. Die 2 Vergleichsfotos bleiben in Kleinkram.
+   Im Browser (nur zum Ausprobieren): grober Vergleich über Farben und Bildaufbau. */
+const wOrtV2=()=>CAP&&S.set.ortAlt!==true;
+function wFrame(v,max){const c=document.createElement('canvas');const sw=v.videoWidth||640,sh=v.videoHeight||480;const k=Math.min(1,(max||640)/Math.max(sw,sh));c.width=Math.round(sw*k);c.height=Math.round(sh*k);c.getContext('2d').drawImage(v,0,0,c.width,c.height);return c.toDataURL('image/jpeg',.85)}
+const wOrtRefs=async o=>(await Promise.all([0,1].map(i=>IDB.get(`ort-${o.id}-${i}`)))).filter(Boolean);
+function wOrtDel(id){const o=wOrte().find(x=>x.id===id);if(!o)return;S.wOrte=wOrte().filter(x=>x.id!==id);[0,1].forEach(i=>IDB.del(`ort-${id}-${i}`));wList().forEach(w=>{if(w.ortId===id)w.ortId=(wOrte()[0]||{}).id||null});save()}
+function weckerOrtSheet(done,back){const refs=[],shots=[];let img=null;
+ sheet(`<h2>Ort festlegen</h2><p class="small muted">Wähle eine Stelle, zu der du morgens gehen musst – z. B. Waschbecken, Kaffeemaschine, Regal. Am besten etwas mit <b>Details</b>: Kanten, Muster, Schrift, mehrere Gegenstände. Eine einfarbige Fläche (weiße Wand, schwarze Box allein) lässt sich nicht sicher wiedererkennen – nimm dann die Umgebung mit aufs Bild. Die Fotos bleiben in Kleinkram.</p>
  <label class="f">Name<input class="inp" id="woN" placeholder="z. B. Bad, Küche, Flur" autocomplete="off"></label>
  <video id="woV" playsinline muted style="width:100%;border-radius:12px;background:#000;max-height:45vh;object-fit:cover"></video>
  <p class="small" id="woM">Kamera startet …</p>
- <div class="sheet-foot stack"><button class="btn pri block" id="woF" disabled>Foto 1 von 2</button><button class="btn block ghost" id="woX">Abbrechen</button></div>`,async s=>{const v=s.querySelector('#woV'),btn=s.querySelector('#woF');
+ <div class="sheet-foot stack"><button class="btn pri block" id="woF" disabled>Foto 1 von 2</button><button class="btn block ghost" id="woX">Abbrechen</button></div>`,async s=>{const v=s.querySelector('#woV'),btn=s.querySelector('#woF'),msg=t=>s.querySelector('#woM').textContent=t;
   s.querySelector('#woX').onclick=()=>{wCamStop();back?back():closeSheet()};
-  try{await wCam(v);btn.disabled=false;s.querySelector('#woM').textContent='Richte die Kamera auf die Stelle und tippe auf „Foto“.'}catch(e){s.querySelector('#woM').textContent='Kamera ließ sich nicht öffnen. In den App-Einstellungen die Kamera erlauben.';return}
-  btn.onclick=async()=>{btn.disabled=true;btn.textContent='Moment …';const f=await wFeat(v,true);refs.push(f);
-   if(refs.length===1){const c=document.createElement('canvas');c.width=160;c.height=Math.round(160*v.videoHeight/v.videoWidth)||120;c.getContext('2d').drawImage(v,0,0,c.width,c.height);img=c.toDataURL('image/jpeg',.7);
-    s.querySelector('#woM').textContent='Gut! Jetzt einen Schritt zur Seite und dieselbe Stelle nochmal fotografieren.';btn.textContent='Foto 2 von 2';btn.disabled=false;return}
-   wCamStop();const sim=wSim(refs[0],refs[1]);const thr=Math.max(.5,Math.min(.85,sim*.88));
-   const o={id:uid(),name:val('woN')||'Mein Ort',refs,thr:Math.round(thr*100)/100,img};wOrte().push(o);save();toast(`Ort „${o.name}“ gespeichert`);done(o)}})}
+  try{await wCam(v);btn.disabled=false;msg('Richte die Kamera auf die Stelle und tippe auf „Foto“.')}catch(e){msg('Kamera ließ sich nicht öffnen. In den App-Einstellungen die Kamera erlauben.');return}
+  const thumb=()=>{const c=document.createElement('canvas');c.width=160;c.height=Math.round(160*v.videoHeight/v.videoWidth)||120;c.getContext('2d').drawImage(v,0,0,c.width,c.height);return c.toDataURL('image/jpeg',.7)};
+  const finish=o=>{wCamStop();wOrte().push(o);save();toast(`Ort „${o.name}“ gespeichert`);done(o)};
+  let v2=wOrtV2();
+  btn.onclick=async()=>{btn.disabled=true;const lbl=btn.textContent;btn.textContent='Prüfe …';
+   if(v2){const shot=wFrame(v,640),b64=shot.split(',')[1];let r;
+    try{r=await CapP('Scan').ortPruefen({image:b64,refs:[shots.length?shots[0].split(',')[1]:b64],key:''})}catch(e){v2=false;shots.length=0;msg('Die genaue Erkennung ließ sich nicht starten – es geht mit der einfachen weiter. Bitte Foto 1 nochmal.');btn.textContent='Foto 1 von 2';btn.disabled=false;return}
+    if(!shots.length){if((r.punkte||0)<150){msg(`Hier gibt es zu wenig Details (${r.punkte||0} markante Punkte, nötig sind etwa 150). Geh einen Schritt zurück, nimm mehr Umgebung mit aufs Bild oder such eine Stelle mit Mustern, Kanten oder Schrift. Mehr Licht hilft auch.`);btn.textContent=lbl;btn.disabled=false;return}
+     shots.push(shot);img=thumb();msg(`Gut, ${r.punkte} markante Punkte. Jetzt einen Schritt zur Seite und dieselbe Stelle nochmal fotografieren.`);btn.textContent='Foto 2 von 2';btn.disabled=false;return}
+    if(!r.ok){msg('Die zwei Fotos passen nicht zusammen. Gleiche Stelle, gleicher Abstand – nur einen kleinen Schritt zur Seite. Versuch Foto 2 nochmal.');btn.textContent=lbl;btn.disabled=false;return}
+    shots.push(shot);const id=uid();await IDB.put(`ort-${id}-0`,shots[0]);await IDB.put(`ort-${id}-1`,shots[1]);finish({id,name:val('woN')||'Mein Ort',v:2,img});return}
+   const f=await wFeat(v,true);refs.push(f);
+   if(refs.length===1){img=thumb();msg('Gut! Jetzt einen Schritt zur Seite und dieselbe Stelle nochmal fotografieren.');btn.textContent='Foto 2 von 2';btn.disabled=false;return}
+   const sim=wSim(refs[0],refs[1]);const thr=Math.max(.5,Math.min(.85,sim*.88));finish({id:uid(),name:val('woN')||'Mein Ort',refs,thr:Math.round(thr*100)/100,img})}})}
 
 /* ---------- Aufgaben ---------- */
 const WSATZ=[['Ich bin wach.','Heute wird gut.','Aufstehen, los geht’s.'],['Ich stehe jetzt auf und trinke ein Glas Wasser.','Der frühe Vogel fängt den Wurm, also raus hier.','Fünf Minuten anfangen reicht für den Start.'],['Wer morgens gleich aufsteht, hat den Kopf frei für die wichtigen Dinge des Tages.','Ich mache heute zuerst die eine Sache, die ich sonst gern aufschiebe.','Kleine Schritte jeden Morgen bringen mich weiter als große Pläne am Abend.']];
@@ -128,11 +145,24 @@ function wTaskRun(box,task,lv,n,done){let i=0;const step=()=>{if(i>=n){done();re
   box.querySelector('.wk-grid').onclick=e=>{const b=e.target.closest('[data-c]');if(!b||!ready)return;wPoke();const c=+b.dataset.c;b.classList.add('on');setTimeout(()=>b.classList.remove('on'),200);if(c===seq[pos]){pos++;if(pos>=L)setTimeout(step,300)}else{ready=false;box.querySelector('#wkH').textContent='Falsch – nochmal ansehen';pos=0;seq.forEach((c2,j)=>{setTimeout(()=>cells[c2].classList.add('on'),600+j*700);setTimeout(()=>cells[c2].classList.remove('on'),600+j*700+450)});setTimeout(()=>{ready=true;box.querySelector('#wkH').textContent='Jetzt nachtippen'},600+L*700)}}}
  else if(task==='ort'){const O=wOrte().find(o=>o.id===WK.cur.ortId)||wOrte()[0];if(!O){task='rechnen';lv=3;i--;step();return}
   box.innerHTML=`${head}<p class="wk-q" style="font-size:22px">Geh zu: ${esc(O.name)}</p>${O.img?`<img src="${O.img}" alt="" style="width:88px;height:88px;object-fit:cover;border-radius:10px;margin:0 auto;display:block;opacity:.85">`:''}<video id="wkV" playsinline muted style="width:100%;border-radius:12px;background:#000;max-height:42vh;object-fit:cover"></video><div class="bar" style="width:100%;height:12px"><i id="wkB" style="width:0%"></i></div><p class="small" id="wkM" style="text-align:center">Kamera startet …</p><button class="btn ghost block" id="wkAlt" hidden>Klappt nicht? Stattdessen schwer rechnen</button>`;
-  const v=box.querySelector('#wkV');let ok=false,hits=0,tries=0;const fail=()=>{const b=box.querySelector('#wkAlt');if(!b)return;b.hidden=false;b.onclick=()=>{ok=true;wCamStop();task='rechnen';lv=3;i--;step()}};
-  wCam(v).then(()=>{box.querySelector('#wkM').textContent='Halte die Kamera auf die gleiche Stelle wie beim Festlegen';const loop=async()=>{if(ok||!box.isConnected)return;wPoke();tries++;
-   const f=await wFeat(v,!!O.refs[0].n);const sc=Math.max(...O.refs.map(r=>wSim(f,r)));const pct=Math.max(0,Math.min(100,sc/O.thr*100));box.querySelector('#wkB').style.width=pct+'%';
-   if(sc>=O.thr){hits++;box.querySelector('#wkM').textContent='Gefunden – kurz ruhig halten …';if(hits>=2){ok=true;wCamStop();step();return}}else{hits=0;box.querySelector('#wkM').textContent=pct>70?'Fast – etwas näher oder gleicher Winkel':'Noch nicht die richtige Stelle'}
-   if(tries===40)fail();setTimeout(loop,450)};loop()}).catch(()=>{box.querySelector('#wkM').textContent='Kamera ließ sich nicht öffnen.';fail()})}
+  const v=box.querySelector('#wkV');let ok=false,hits=0,tries=0;const t0=Date.now(),say=t=>{const m=box.querySelector('#wkM');if(m)m.textContent=t},bar=p=>{const b=box.querySelector('#wkB');if(b)b.style.width=Math.max(0,Math.min(100,p))+'%'};
+  const fail=()=>{const b=box.querySelector('#wkAlt');if(!b||!b.hidden)return;b.hidden=false;b.onclick=()=>{ok=true;wCamStop();task='rechnen';lv=3;i--;step()}};
+  const found=()=>{ok=true;wCamStop();step()};
+  /* einfache Erkennung (Browser, alte Orte) */
+  const loopAlt=async()=>{if(ok||!box.isConnected)return;wPoke();tries++;if(!O.refs||!O.refs.length){say('Für diesen Ort fehlen die Vergleichsfotos. Bitte später neu festlegen.');fail();return}
+   const f=await wFeat(v,!!O.refs[0].n);const sc=Math.max(...O.refs.map(r=>wSim(f,r)));bar(sc/O.thr*100);
+   if(sc>=O.thr){hits++;say('Gefunden – kurz ruhig halten …');if(hits>=2){found();return}}else{hits=0;say(sc/O.thr>.7?'Fast – etwas näher oder gleicher Winkel':'Noch nicht die richtige Stelle')}
+   if(tries===40)fail();setTimeout(loopAlt,450)};
+  /* genaue Erkennung (App): markante Punkte müssen geometrisch zum Vergleichsfoto passen */
+  const loopNeu=async refs=>{if(ok||!box.isConnected)return;wPoke();tries++;let r;
+   try{r=await CapP('Scan').ortPruefen(Object.assign({image:wFrame(v,640).split(',')[1],key:'ort-'+O.id},tries===1?{refs}:{}))}catch(e){if(O.refs&&O.refs.length){loopAlt();return}say('Die Erkennung ließ sich nicht starten.');fail();return}
+   if(ok||!box.isConnected)return;bar(Math.max(r.h/16,r.f/28)*100);
+   if(r.ok){hits++;if(hits>=2||r.h>=40){found();return}say('Gefunden – kurz ruhig halten …')}
+   else{hits=0;say((r.punkte||0)<60?'Zu dunkel oder zu wenig zu sehen – mach Licht an':Math.max(r.h/16,r.f/28)>.55?'Fast – gleicher Abstand und Winkel wie beim Festlegen':'Noch nicht die richtige Stelle')}
+   if(Date.now()-t0>22000)fail();setTimeout(()=>loopNeu(refs),300)};
+  wCam(v).then(async()=>{say('Halte die Kamera auf die gleiche Stelle wie beim Festlegen');
+   if(O.v===2&&CAP){const refs=(await wOrtRefs(O)).map(x=>x.split(',')[1]);if(refs.length)loopNeu(refs);else{say('Für diesen Ort fehlen die Vergleichsfotos (z. B. nach einer eingespielten Sicherung). Bitte später neu festlegen.');fail()}}
+   else loopAlt()}).catch(()=>{say('Kamera ließ sich nicht öffnen.');fail()})}
  else{/* wach: eine leichte Aufgabe */const p=wMath(1);box.innerHTML=`${head}<p class="wk-q">${p.q} = ?</p><input class="inp" id="wkI" inputmode="numeric" style="font-size:28px;text-align:center"><button class="btn pri block" id="wkOk">Ich bin wach</button>`;box.querySelector('#wkOk').onclick=()=>{if(+val('wkI')===p.a)step();else toast('Nochmal rechnen')}}};step()}
 
 /* ---------- Klingeln ---------- */

@@ -94,6 +94,7 @@ document.addEventListener('change',e=>{const t=e.target;
  if(t.id==='setBriefTime'){S.set.briefTime=t.value||'07:00';save()}
  if(t.id==='setRemindMin'){S.set.remindMin=+t.value;save()}
  if(t.id==='setLock')lockToggle(t);
+ if(t.id==='setScanner'){S.set.scanner=t.checked;SCAN_OFF=false;save();toast(t.checked?'Scanner an':'Scanner aus – normale Kamera')}
  if(t.id==='setAutoBackup'){S.set.autoBackup=t.checked;save();if(t.checked)autoBackup();render()}
  if(t.dataset.set==='brief'||t.dataset.set==='remind'){if(t.checked&&CAP)CapP('LocalNotifications').requestPermissions().catch(()=>{});scheduleAll()}});
 document.addEventListener('input',e=>{if(e.target.id==='docQ'){const q=e.target.value.toLowerCase().trim();document.querySelectorAll('[data-s]').forEach(li=>li.hidden=!!q&&!li.dataset.s.includes(q))}});

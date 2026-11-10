@@ -449,3 +449,10 @@ details.more>summary{cursor:pointer;padding:6px 0}
 
 :root:not([data-skin="klassik"]) .reg-body:has(> .one){background:none;border:0;padding:0;box-shadow:none}
 :root:not([data-skin="klassik"]) .wrap{padding-block:14px calc(132px + env(safe-area-inset-bottom,0px))}
+
+/* Rechnung prüfen: Fundstelle aus dem Foto und andere erkannte Werte */
+.src-wrap{margin:-4px 0 10px;display:flex;flex-direction:column;gap:3px}
+.src-crop{display:block;max-width:100%;height:auto;border:1px solid var(--line);border-radius:8px;background:#fff}
+.alt-row{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:-2px 0 10px}
+.chip-btn{border:1px solid var(--line);background:var(--paper-2);color:var(--ink);border-radius:999px;padding:5px 11px;font-size:.82rem;min-height:32px}
+.chip-btn:active{background:var(--stamp-soft)}
