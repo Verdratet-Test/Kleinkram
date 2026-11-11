@@ -28,6 +28,13 @@ const soVis=(A,B)=>{let m=0;(A||[]).forEach(a=>(B||[]).forEach(b=>{const v=soVis
 const soName=n=>orClean(n).replace(/^\.+/,'');
 const soKey=n=>soName(n).toLowerCase();
 const soGr=()=>{S.sortGr=S.sortGr||[];return S.sortGr};
+/* Hauptordner pro Gruppe (z. B. /Verdrahtet) mit Unterordnern nach Art – braucht „Zugriff auf alle Dateien“.
+   Ohne diesen Zugriff: Bilder + Videos zusammen in DCIM/<Name> (über Android). */
+const soDeep=()=>!!(CL.st||{}).files;
+const soBase=()=>S.set.sortBase==='Documents'?'Documents/':'';
+const SO_SUB={Installationsdateien:'APK',Dokumente:'Dokumente',Tabellen:'Dokumente','Präsentationen':'Dokumente',Rechnungen:'Dokumente','Kontoauszüge':'Dokumente','Verträge':'Dokumente','Steuer & Bescheide':'Dokumente','Lohn & Gehalt':'Dokumente',Bilder:'Bilder',Videos:'Videos',Audio:'Audio',Archive:'Archive'};
+function soSub(name,kind,src){if(src==='shot')return'Screenshots';if(kind==='video')return'Videos';if(kind==='image')return'Bilder';return SO_SUB[FTYP[fext(name)]]||'Sonstiges'}
+const soFull=m=>String(m.path||'').replace(/\/*$/,'/')+m.name;
 
 async function soLoad(){if(SO.cache)return SO.cache;const v=await IDB.get(SO_KEY);SO.cache=v&&typeof v==='object'?v:{};return SO.cache}
 /* Welche Dateien gehören dazu (nur die oberste Ebene der drei Ordner – schon Sortiertes bleibt in Ruhe) */
@@ -101,17 +108,20 @@ async function soRun(){const st=CL.st||{};if(!CAP){toast('Geht nur in der Androi
 const soStrip=L=>`<div class="so-strip">${L.slice(0,6).map(m=>{const t=CL.thumbs[mkey(m)];return`<span class="so-th">${t?`<img src="${t.src}" alt="">`:''}${m.kind==='video'?'<i>▶</i>':''}</span>`}).join('')}${L.length>6?`<span class="so-more">+${L.length-6}</span>`:''}</div>`;
 const soCount=(media,files)=>{const v=media.filter(e=>(e.m||e).kind==='video').length,i=media.length-v;return[v?`${v} ${v===1?'Video':'Videos'}`:'',i?`${i} ${i===1?'Bild':'Bilder'}`:'',files&&files.length?nD(files.length):''].filter(Boolean).join(' · ')};
 
+function soWhere(g){if(!soDeep())return`${g.media.length?`Album <b>${esc(g.name)}</b>`:''}${g.media.length&&g.files.length?' + ':''}${g.files.length?`Download/${esc(g.name)}`:''}`;
+ const subs=[...new Set([...g.media.map(e=>soSub(e.m.name,e.m.kind,e.x.src)),...g.files.map(d=>soSub(d.name,d.m?d.m.kind:'',''))])];return`Ordner <b>${esc(soBase()?'Dokumente/':'')}${esc(g.name)}</b> mit ${subs.map(esc).join(', ')}`}
 function soSheet(){const P=SO.plan;const names=[...new Set([...P.groups.map(g=>g.name),...soGr().map(g=>g.name)])];
  const tk=Object.keys(P.types).sort((a,b)=>P.types[b].length-P.types[a].length);
  const gHtml=P.groups.map((g,i)=>{const uns=g.media.filter(e=>e.unsure).length;return`<div class="so-g">
   <label class="so-hd"><input type="checkbox" data-sg="${i}" ${g.on?'checked':''}><input class="inp so-name" data-sn="${i}" value="${esc(g.name)}" aria-label="Ordnername"></label>
-  <p class="small muted">${soCount(g.media,g.files)}${uns?` · <b style="color:var(--warn)">${uns} unsicher</b>`:''} → ${g.media.length?`Album <b>${esc(g.name)}</b>`:''}${g.media.length&&g.files.length?' + ':''}${g.files.length?`Download/${esc(g.name)}`:''}</p>
+  <p class="small muted">${soCount(g.media,g.files)}${uns?` · <b style="color:var(--warn)">${uns} unsicher</b>`:''} → ${soWhere(g)}</p>
   ${g.media.length?soStrip(g.media.map(e=>e.m)):''}${g.media.length?`<button class="btn sm ghost" data-sv="${i}">Einzeln ansehen</button>`:''}</div>`}).join('');
  const fHtml=P.fresh.map((c,i)=>`<div class="so-g so-new"><p><b>${soCount(c.items.map(x=>x.m))}</b> sehen zusammengehörig aus</p>${c.words.length?`<p class="small muted">Erkannt: ${c.words.map(esc).join(', ')}</p>`:''}${soStrip(c.items.map(x=>x.m))}
   <input class="inp" data-fn="${i}" list="soNames" placeholder="Name, z. B. Verdrahtet (leer = bleibt liegen)" value="${esc(c.name||'')}" autocomplete="off"><button class="btn sm ghost" data-fv="${i}">Einzeln ansehen</button></div>`).join('');
  const tHtml=tk.map(k=>`<label class="li" style="cursor:pointer"><input type="checkbox" data-st="${esc(k)}" ${(P.typesOff||{})[k]?'':'checked'} style="width:22px;height:22px;accent-color:var(--stamp);flex:none"><div class="grow"><p><b>${esc(k)}</b> <span class="small muted">→ Download/${esc(k)}</span></p><p class="small muted" style="overflow-wrap:anywhere">${P.types[k].length} · ${fmtB(sumB(P.types[k]))} · z. B. ${esc(P.types[k].slice(0,2).map(d=>d.name).join(', '))}</p></div></label>`).join('');
  const empty=!P.groups.length&&!P.fresh.length&&!tk.length;
- sheet(`<h2>Neues sortieren</h2><p class="small muted">Aus <b>Screenshots</b> (${P.counts.shots}), <b>Bildschirmaufnahmen</b> (${P.counts.recs}) und <b>Download</b> (${P.filesOk?P.counts.dl:'kein Zugriff'}). Bilder und Videos einer Gruppe kommen zusammen in ein Album (Ordner DCIM/Name), Download-Dateien in Unterordner von Download. Namen kannst du ändern, Haken weg = bleibt liegen.</p>
+ sheet(`<h2>Neues sortieren</h2><p class="small muted">Aus <b>Screenshots</b> (${P.counts.shots}), <b>Bildschirmaufnahmen</b> (${P.counts.recs}) und <b>Download</b> (${P.filesOk?P.counts.dl:'kein Zugriff'}). ${soDeep()?'Alles einer Gruppe kommt in einen <b>Hauptordner</b> (z. B. „Verdrahtet“), darin Unterordner nach Art: Videos, Screenshots, Bilder, APK, Dokumente …':'Bilder und Videos einer Gruppe kommen zusammen in ein Album (Ordner DCIM/Name), Download-Dateien in Unterordner von Download. Für Hauptordner mit Unterordnern unten bei „Dateien“ den Zugriff auf alle Dateien erlauben.'} Übriges aus Download wird nach Art sortiert. Namen kannst du ändern, Haken weg = bleibt liegen.</p>
+ ${soDeep()?`<label class="f">Hauptordner anlegen<select class="inp" id="soBase"><option value="" ${soBase()?'':'selected'}>direkt im Speicher (z. B. /Verdrahtet)</option><option value="Documents" ${soBase()?'selected':''}>im Ordner Dokumente (z. B. Dokumente/Verdrahtet)</option></select></label>`:''}
  <datalist id="soNames">${names.map(n=>`<option value="${esc(n)}">`).join('')}</datalist>
  ${empty?'<div class="card"><p>Alles ordentlich – nichts Neues zum Sortieren.</p></div>':''}
  ${P.groups.length?`<h3 class="so-h">Nach App und Thema</h3>${gHtml}`:''}
@@ -127,6 +137,7 @@ function soSheet(){const P=SO.plan;const names=[...new Set([...P.groups.map(g=>g
   s.querySelectorAll('[data-st]').forEach(b=>b.onchange=()=>{P.typesOff=P.typesOff||{};P.typesOff[b.dataset.st]=!b.checked;upd()});
   s.querySelectorAll('[data-sv]').forEach(b=>b.onclick=()=>{const g=P.groups[+b.dataset.sv];soPick(g.name,g.media.map(e=>e.m),g.off=g.off||new Set(),g.media.filter(e=>e.unsure).map(e=>mkey(e.m)))});
   s.querySelectorAll('[data-fv]').forEach(b=>b.onclick=()=>{const c=P.fresh[+b.dataset.fv];soPick(c.name||'Neue Gruppe',c.items.map(x=>x.m),c.off=c.off||new Set(),[])});
+  const bs=s.querySelector('#soBase');if(bs)bs.onchange=()=>{S.set.sortBase=bs.value;save();soSheet()};
   s.querySelector('#soGo').onclick=soDo;upd()})}
 
 /* Einzelne Bilder abwählen; danach zurück zur Übersicht */
@@ -136,8 +147,11 @@ async function soPick(title,list,off,unsure){await clThumbs(list);const sel=new 
   s.querySelector('#soBack').onclick=()=>{off.clear();list.forEach(m=>{if(!sel.has(mkey(m)))off.add(mkey(m))});soSheet()}})}
 
 function soChosen(){const P=SO.plan;const media=[],files=[],learn=[];
- P.groups.forEach(g=>{if(!g.on||!g.name)return;const off=g.off||new Set();const mm=g.media.filter(e=>!off.has(mkey(e.m)));mm.forEach(e=>media.push({m:e.m,name:g.name}));g.files.forEach(d=>files.push({d,to:'Download/'+g.name}));if(mm.length)learn.push({name:g.name,xs:mm.map(e=>e.x)})});
- P.fresh.forEach(c=>{if(!c.name)return;const off=c.off||new Set();const xs=c.items.filter(x=>!off.has(mkey(x.m)));xs.forEach(x=>media.push({m:x.m,name:c.name}));if(xs.length)learn.push({name:c.name,xs})});
+ const deep=soDeep(),root=n=>(!soBase()&&/^(android|dcim|download|documents|pictures|movies|music|alarms|notifications|podcasts|ringtones|audiobooks|recordings|miui)$/i.test(n)?'Documents/':soBase())+n;
+ const putM=(m,src,name)=>{if(deep)files.push({d:{path:soFull(m),name:m.name},to:root(name)+'/'+soSub(m.name,m.kind,src)});else media.push({m,name})};
+ P.groups.forEach(g=>{if(!g.on||!g.name)return;const off=g.off||new Set();const mm=g.media.filter(e=>!off.has(mkey(e.m)));mm.forEach(e=>putM(e.m,e.x.src,g.name));
+  g.files.forEach(d=>files.push({d,to:deep?root(g.name)+'/'+soSub(d.name,d.m?d.m.kind:'',d.m?'dl':''):'Download/'+g.name}));if(mm.length)learn.push({name:g.name,xs:mm.map(e=>e.x)})});
+ P.fresh.forEach(c=>{if(!c.name)return;const off=c.off||new Set();const xs=c.items.filter(x=>!off.has(mkey(x.m)));xs.forEach(x=>putM(x.m,x.src,c.name));if(xs.length)learn.push({name:c.name,xs})});
  Object.entries(P.types).forEach(([k,L])=>{if((P.typesOff||{})[k])return;L.forEach(d=>files.push({d,to:'Download/'+k}))});
  return{media,files,learn,total:media.length+files.length}}
 
@@ -168,7 +182,7 @@ function soGroupsSheet(){const gr=soGr();
   s.querySelectorAll('[data-gd]').forEach(b=>b.onclick=()=>{const g=gr[+b.dataset.gd];confirmSheet(`„${g.name}“ vergessen?`,'Kleinkram ordnet dann nichts mehr automatisch dieser Gruppe zu. Ordner und Dateien bleiben unverändert.','Vergessen',async()=>{S.sortGr=gr.filter(x=>x!==g);save();try{await IDB.del('sortgr-'+g.id)}catch(e){}soGroupsSheet()},true,()=>soGroupsSheet())})})}
 
 function soSection(){const st=CL.st||{};if(st.media!=='granted')return'';const L=clStore().lastSort,gr=soGr();
- return reg('Neues sortieren',null,`<p class="small muted">Screenshots, Bildschirmaufnahmen und Download ordnen: nach App und Thema (z. B. alles von Verdrahtet in ein Album) und Download nach Art. Kleinkram schlägt vor, du bestätigst.</p>
+ return reg('Neues sortieren',null,`<p class="small muted">Screenshots, Bildschirmaufnahmen und Download ordnen: nach App und Thema (z. B. alles von Verdrahtet in einen Ordner „Verdrahtet“ mit Unterordnern Videos, Screenshots, APK …) und Download nach Art. Kleinkram schlägt vor, du bestätigst.</p>
  <div class="row"><button class="btn sm pri" data-act="soRun" ${CL.busy?'disabled':''}>Vorschläge machen</button>${gr.length?`<button class="btn sm ghost" data-act="soGroups">${gr.length} gemerkte Gruppen</button>`:''}</div>
  ${L&&(L.media.length||L.files.length)?`<div class="li"><div class="grow"><p><b>Zuletzt sortiert</b></p><p class="small muted">${nD(L.media.length+L.files.length)} · ${fmtD(L.at)}</p></div><button class="btn sm" data-act="soUndo">Rückgängig</button></div>`:''}`)}
 
