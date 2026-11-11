@@ -91,6 +91,7 @@ function vAufraeumen(){if(CAP)clRefreshStatus();const c=clStore(),st=CL.st||{};
    card('trash','Papierkorb','Zurückholen oder endgültig löschen, um sofort Platz zu schaffen',null,0,'Öffnen')+
    `<div class="li"><button class="btn sm ghost" data-act="clScanMedia" ${CL.busy?'disabled':''}>Neu prüfen</button></div>`}
  h+=reg('Fotos &amp; Videos',null,f);
+ if(typeof soSection==='function')h+=soSection();
  if(typeof orSection==='function')h+=orSection();
  // Dateien
  let d='';const ft=c.fileTrash;
@@ -100,7 +101,7 @@ function vAufraeumen(){if(CAP)clRefreshStatus();const c=clStore(),st=CL.st||{};
  else{const C=CL.fcat,dupB=CL.fdup?sumB(CL.fdup.flatMap(g=>g.slice(1))):0;
   d=`<p class="small muted">${nD(CL.files.length)} · ${fmtB(sumB(CL.files))}</p></div><div class="reg-body flush" style="border-radius:0 0 var(--r) var(--r);border-top:0;margin-top:-10px">`+
    card('fdup','Doppelte Dateien','Gleicher Inhalt, mehrfach gespeichert',CL.fdup?CL.fdup.length:null,dupB,CL.fdup?'Ansehen':'Suchen')+
-   card('fsort','Download sortieren','Nach Art in Ordner: Rechnungen, Verträge, Dokumente, Bilder …',C.sort.length,0)+
+   `<div class="li"><div class="grow"><p><b>Download sortieren</b></p><p class="small muted">Nach Art und Thema – zusammen mit Screenshots und Bildschirmaufnahmen</p></div><button class="btn sm" data-act="soRun" ${CL.busy?'disabled':''}>Vorschläge</button></div>`+
    card('apk','Installationsdateien','APK-Dateien, nach der Installation meist überflüssig',C.apk.length,sumB(C.apk))+
    card('fold','Alte Downloads','Älter als ein Jahr',C.old.length,sumB(C.old))+
    card('fbig','Große Dateien','Über 100 MB',C.big.length,sumB(C.big))+

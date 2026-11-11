@@ -7,10 +7,10 @@ Kleinkram ist eine Web-App (HTML, CSS, JavaScript ohne Framework), die mit **Cap
 |---|---|
 | `www/index.html` | Grundgerüst: Kopf, Navigation, Platzhalter, lädt CSS und Module |
 | `www/css/app.css` | Gestaltung. Alle Farben als Tokens in `:root`, Dunkelmodus über `prefers-color-scheme`. Sechs Designs über `data-skin` am `<html>` (Frisch, Klassik, Wald, Sonne, Ozean, Nacht), jedes hell und dunkel; Hell/Dunkel/Automatisch über `data-theme`. Alle Designs außer „Klassik“ bekommen den frischen Look (Verlaufskarte, schwebende Leiste, runde Ecken) |
-| `www/js/*.js` | Die App in 26 Modulen (siehe unten), werden in Nummern-Reihenfolge geladen |
+| `www/js/*.js` | Die App in 27 Modulen (siehe unten), werden in Nummern-Reihenfolge geladen |
 | `www/sounds/` | Signaltöne zum Vorhören in der App |
 | `www/lib/` | Fremdbibliotheken, werden beim Bau aus npm kopiert (nicht im Repo) |
-| `native/` | Android-Teil: `KleinkramNativePlugin` (Kalender-Eintrag, Links öffnen), `AufraeumenPlugin` (Fotos/Dateien), `TexterkennungPlugin` (Google ML Kit, offline), `ScanPlugin` (Dokumentenscanner von Google, QR-Codes per ML Kit, OpenCV: Blatt gerade ziehen und Ort fürs Wecker-Foto wiedererkennen), `SperrePlugin` (App-Sperre per Fingerabdruck/Display-Sperre), `MainActivity`, `theme.py` (Statusleiste), `manifest.py` (Berechtigungen), `gradle.py` (zusätzliche Bibliotheken: ML Kit Text/Bildlabels/Gesichter, TensorFlow Lite, Biometrie), `modelle/` (Gesichtsmodell MobileFaceNet, BSD-3); das ImageNet-Modell (EfficientNet-Lite2) lädt der Bau von Google herunter |
+| `native/` | Android-Teil: `KleinkramNativePlugin` (Kalender-Eintrag, Links öffnen), `AufraeumenPlugin` (Fotos/Dateien, Sortier-Analyse, App-Namen), `TexterkennungPlugin` (Google ML Kit, offline), `ScanPlugin` (Dokumentenscanner von Google, QR-Codes per ML Kit, OpenCV: Blatt gerade ziehen und Ort fürs Wecker-Foto wiedererkennen), `SperrePlugin` (App-Sperre per Fingerabdruck/Display-Sperre), `MainActivity`, `theme.py` (Statusleiste), `manifest.py` (Berechtigungen), `gradle.py` (zusätzliche Bibliotheken: ML Kit Text/Bildlabels/Gesichter, TensorFlow Lite, Biometrie), `modelle/` (Gesichtsmodell MobileFaceNet, BSD-3); das ImageNet-Modell (EfficientNet-Lite2) lädt der Bau von Google herunter |
 | `resources/android/` | App-Icons und Signaltöne (`raw/`) für Android |
 | `.github/workflows/app-bauen.yml` | Baut bei jedem Push APK + Web-App |
 
@@ -43,6 +43,7 @@ Kleinkram ist eine Web-App (HTML, CSS, JavaScript ohne Framework), die mit **Cap
 | `24-ablaufdaten.js` | Ausweise & Prüftermine (Personalausweis, Pass, Führerschein, TÜV, Karten …) mit Vorlauf-Aufgabe |
 | `25-kopf-leeren.js` | Kopf leeren (Schnellerfassung auf „Heute“, später als Aufgabe/Termin/Notiz einsortieren) und Daten fürs Widget (Android-Teil: `KleinkramWidget`, Layout in `resources/android/layout`) |
 | `26-struktur.js` | Einsteiger-Aufbau: Einrichtung beim ersten Start (Name, Funktionen wählen, Design), Bereich „Mehr“ (Werkzeug-Kacheln + Einstellungen in eigenen Fenstern), Design-Auswahl, Funktionen ein-/ausblenden (`S.set.mods`, Daten bleiben erhalten), „Plus für alles“ mit Foto-Erkennung (GiroCode/Rechnung → Überweisung, viele Datumszeilen → Plan scannen, sonst Dokument) |
+| `27-sortieren.js` | Neues sortieren (Handy aufräumen): Screenshots (App aus dem Xiaomi-Dateinamen, Name per `appNamen`), Bildschirmaufnahmen (`sortAnalyse`: 3 Bilder je Video → Bildschirmtext + Bild-Fingerabdruck) und Download. Vergleich mit Gruppen (App-Screenshots, gemerkte Gruppen `S.sortGr` + Beispielbilder in IndexedDB `sortgr-<id>`), unbekannt Ähnliches als neue Gruppe zum Benennen. Ziel: DCIM/<Gruppe> (ein Album für Bilder und Videos), Download/<Gruppe oder Art>. Rückgängig über `clean.lastSort`. Analyse-Cache in IndexedDB `kk-sortier` |
 
 Alle Module teilen sich einen globalen Zustand `S` (wird in `localStorage` unter `kleinkram-v1` gespeichert) und den Oberflächen-Zustand `UI`. Neue Funktionen bekommen ein eigenes Modul vor `13-erinnerungen.js` und werden in `index.html` und `sw.js` eingetragen.
 

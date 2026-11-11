@@ -417,6 +417,134 @@ public class AufraeumenPlugin extends Plugin {
         }).start();
     }
 
+    /**
+     * Sortieren: Screenshots und Bildschirmaufnahmen anschauen. Pro Datei bis zu 3 Bilder (bei Videos aus Anfang, Mitte, Ende),
+     * daraus der Text auf dem Bildschirm (ML Kit, ohne Statusleiste/Navigationsleiste) und ein grober Bild-Fingerabdruck
+     * (Farbverteilung 4x4x4 + Aufbau 6x12 Graustufen). Nichts wird verändert, nichts verlässt das Handy.
+     * Fortschritt über "sortFortschritt".
+     */
+    @PluginMethod
+    public void sortAnalyse(final PluginCall call) {
+        final org.json.JSONArray items = call.getData().optJSONArray("items");
+        if (items == null) { call.reject("Keine Dateien"); return; }
+        belegStop = false;
+        new Thread(() -> {
+            TextRecognizer rec = null;
+            try {
+                rec = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS);
+                ContentResolver cr = getContext().getContentResolver();
+                JSArray out = new JSArray();
+                int n = items.length();
+                for (int i = 0; i < n && !belegStop; i++) {
+                    JSONObject it = items.getJSONObject(i);
+                    JSObject o = new JSObject();
+                    o.put("id", it.optLong("id"));
+                    o.put("kind", it.optString("kind", "image"));
+                    try {
+                        List<Bitmap> frames = new ArrayList<>();
+                        if ("video".equals(it.optString("kind"))) {
+                            android.media.MediaMetadataRetriever mr = new android.media.MediaMetadataRetriever();
+                            try {
+                                mr.setDataSource(getContext(), itemUri(it));
+                                long dur = 0;
+                                try { dur = Long.parseLong(mr.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION)); } catch (Throwable ignored) { }
+                                o.put("dur", dur);
+                                double[] at = dur > 4000 ? new double[] { 0.15, 0.5, 0.85 } : new double[] { 0.5 };
+                                for (double a : at) {
+                                    long us = (long) (dur * a) * 1000L;
+                                    Bitmap f = Build.VERSION.SDK_INT >= 27
+                                        ? mr.getScaledFrameAtTime(us, android.media.MediaMetadataRetriever.OPTION_CLOSEST_SYNC, 1080, 1080)
+                                        : mr.getFrameAtTime(us, android.media.MediaMetadataRetriever.OPTION_CLOSEST_SYNC);
+                                    if (f != null) frames.add(f);
+                                }
+                            } finally {
+                                try { mr.release(); } catch (Throwable ignored) { }
+                            }
+                        } else {
+                            Bitmap b = decodeLarge(cr, it, 1280);
+                            if (b != null) frames.add(b);
+                        }
+                        StringBuilder tx = new StringBuilder();
+                        JSArray vis = new JSArray();
+                        for (Bitmap f : frames) {
+                            Text t = Tasks.await(rec.process(InputImage.fromBitmap(f, 0)));
+                            int H = f.getHeight();
+                            for (Text.TextBlock b : t.getTextBlocks()) for (Text.Line l : b.getLines()) {
+                                android.graphics.Rect r = l.getBoundingBox();
+                                if (r != null && (r.bottom < H * 0.045 || r.top > H * 0.93)) continue;
+                                if (tx.length() < 4000) tx.append(l.getText()).append('\n');
+                            }
+                            vis.put(bildFinger(f));
+                            f.recycle();
+                        }
+                        o.put("t", tx.toString());
+                        o.put("v", vis);
+                    } catch (Throwable e) {
+                        o.put("t", "");
+                        o.put("v", new JSArray());
+                        o.put("err", true);
+                    }
+                    out.put(o);
+                    JSObject p = new JSObject();
+                    p.put("i", i + 1);
+                    p.put("n", n);
+                    notifyListeners("sortFortschritt", p);
+                }
+                JSObject r = new JSObject();
+                r.put("items", out);
+                r.put("stopped", belegStop);
+                call.resolve(r);
+            } catch (Throwable e) {
+                call.reject("Anschauen ging nicht: " + e.getMessage());
+            } finally {
+                try { if (rec != null) rec.close(); } catch (Throwable ignored) { }
+            }
+        }).start();
+    }
+
+    /** 64 Farbanteile (Promille) + 72 Graustufen (6 breit x 12 hoch) eines Bilds, ohne Status- und Navigationsleiste. */
+    private static JSArray bildFinger(Bitmap src) {
+        int top = (int) (src.getHeight() * 0.05), bot = (int) (src.getHeight() * 0.93);
+        Bitmap c = Bitmap.createBitmap(src, 0, top, src.getWidth(), Math.max(1, bot - top));
+        Bitmap s = Bitmap.createScaledBitmap(c, 48, 96, true);
+        int[] px = new int[48 * 96];
+        s.getPixels(px, 0, 48, 0, 0, 48, 96);
+        int[] hist = new int[64];
+        double[] grid = new double[72];
+        for (int y = 0; y < 96; y++) for (int x = 0; x < 48; x++) {
+            int p = px[y * 48 + x];
+            int r = (p >> 16) & 255, g = (p >> 8) & 255, b = p & 255;
+            hist[(r >> 6) * 16 + (g >> 6) * 4 + (b >> 6)]++;
+            grid[(y / 8) * 6 + (x / 8)] += 0.299 * r + 0.587 * g + 0.114 * b;
+        }
+        JSArray a = new JSArray();
+        for (int h : hist) a.put(Math.round(h * 1000f / px.length));
+        for (double g : grid) a.put((int) Math.round(g / 64));
+        if (c != src) c.recycle();
+        s.recycle();
+        return a;
+    }
+
+    /** Lesbare App-Namen zu Paketnamen (aus Screenshot-Dateinamen). Unbekannte bleiben leer. */
+    @PluginMethod
+    public void appNamen(PluginCall call) {
+        JSArray ps = call.getArray("pakete", new JSArray());
+        android.content.pm.PackageManager pm = getContext().getPackageManager();
+        JSObject out = new JSObject();
+        for (int i = 0; i < ps.length(); i++) {
+            String p = ps.optString(i, "");
+            if (p.isEmpty()) continue;
+            try {
+                android.content.pm.ApplicationInfo ai = pm.getApplicationInfo(p, 0);
+                CharSequence l = pm.getApplicationLabel(ai);
+                if (l != null) out.put(p, l.toString());
+            } catch (Throwable ignored) { }
+        }
+        JSObject r = new JSObject();
+        r.put("namen", out);
+        call.resolve(r);
+    }
+
     private static final java.util.Set<String> TIERE = new java.util.HashSet<>(java.util.Arrays.asList(
             "Cat", "Dog", "Pet", "Bird", "Horse", "Rabbit", "Hamster", "Turtle", "Fish"));
 

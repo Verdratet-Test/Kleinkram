@@ -22,6 +22,8 @@ perms = [
     'android.permission.WAKE_LOCK',
     'android.permission.RECEIVE_BOOT_COMPLETED',
     'android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS',
+    # Sortieren: App-Namen zu Screenshots anzeigen (nur Name der App, nichts anderes)
+    'android.permission.QUERY_ALL_PACKAGES',
 ]
 lines = []
 for x in perms:
@@ -35,6 +37,7 @@ if anchor not in s:
 s = s.replace(anchor, anchor + '\n' + '\n'.join(lines), 1)
 if 'xmlns:tools=' not in s:
     s = s.replace('<manifest ', '<manifest xmlns:tools="http://schemas.android.com/tools" ', 1)
+s = s.replace('android.permission.QUERY_ALL_PACKAGES" />', 'android.permission.QUERY_ALL_PACKAGES" tools:ignore="QueryAllPackagesPermission" />')
 s = s.replace('android.permission.MANAGE_EXTERNAL_STORAGE" />', 'android.permission.MANAGE_EXTERNAL_STORAGE" tools:ignore="ScopedStorage" />')
 # Wecker: Empfänger (Weckzeit, Neustart) und Klingel-Dienst
 comp = '''
