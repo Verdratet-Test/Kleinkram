@@ -1,9 +1,9 @@
 /* Kleinkram · Rendern, Fenster (Sheets), 5-Minuten-Fokus */
 "use strict";
 /* ---------- Rendern ---------- */
-function render(){S.contracts=S.contracts||[];syncRecurring();syncContracts();syncHaus();syncWarranties();if(typeof syncAblauf==='function')syncAblauf();const v=$('#view');
+function render(){S.contracts=S.contracts||[];syncRecurring();syncContracts();syncHaus();syncWarranties();if(typeof syncAblauf==='function')syncAblauf();if(typeof syncGewerbe==='function')syncGewerbe();const v=$('#view');
  if(!navOk(UI.tab))UI.tab='heute';
- v.innerHTML=({heute:vHeute,kalender:vKalender,aufgaben:vAufgaben,ablage:vAblage,ich:()=>typeof vMehr==='function'?vMehr():'',aufraeumen:vAufraeumen}[UI.tab]||vHeute)();
+ v.innerHTML=({heute:vHeute,kalender:vKalender,aufgaben:vAufgaben,ablage:vAblage,ich:()=>typeof vMehr==='function'?vMehr():'',aufraeumen:vAufraeumen,gewerbe:()=>typeof vGewerbe==='function'?vGewerbe():''}[UI.tab]||vHeute)();
  const NV=NAV.filter(n=>navOk(n[0]));$('#nav').style.gridTemplateColumns=`repeat(${NV.length},1fr)`;$('#nav').innerHTML=NV.map(([k,l,p])=>`<button class="${UI.tab===k?'on':''}" data-act="go" data-to="${k}" aria-current="${UI.tab===k?'page':'false'}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${p}</svg>${l}</button>`).join('');
  v.querySelectorAll('img[data-img]').forEach(im=>IDB.get(im.dataset.img).then(src=>{if(src)im.src=src}));
 onPic(document,'scanInput',scanFile);if(typeof kopfBind==='function')kopfBind(document);}
@@ -33,7 +33,7 @@ document.addEventListener('click',async e=>{if(!CAP||SCAN_OFF||S.set.scanner===f
  if(!r||r.abgebrochen||!r.bilder||!r.bilder.length)return;const files=r.bilder.map((b,i)=>b64File(b,`scan-${i+1}.jpg`));
  if(id==='scanInput'){scanFile(files);return}
  if(id==='spCam'&&typeof smartPhoto==='function'){closeSheet();smartPhoto(files[0]);return}
- const fn=PIC_FN[id];if(fn)fn(files[0])},true);
+ const fn=PIC_FN[id];if(fn)fn(SCAN_IDS[id]>1?files:files[0])},true);
 /* Erklär-Tipp: einmal zeigen, wegtippbar */
 const tip=(k,html)=>S.set.tips&&S.set.tips[k]?'':`<div class="tip"><span class="tip-ic" aria-hidden="true">💡</span><p class="small grow">${html}</p><button class="tip-x" data-act="tipX" data-k="${k}" aria-label="Tipp ausblenden">${ICON.x}</button></div>`;
 const val=id=>{const e=document.getElementById(id);return e?e.value.trim():''};

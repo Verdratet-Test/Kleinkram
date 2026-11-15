@@ -2,7 +2,7 @@
 "use strict";
 const MODS=[['kalender','📅','Kalender & Termine','Termine, Geburtstage, Dienstplan abfotografieren'],['papier','🧾','Rechnungen & Papierkram','Belege, Verträge, Briefe, Steuer, Ausweis-Fristen'],
  ['haus','🏠','Vermietung & Haus','Mieteingänge, Zähler, Nebenkostenabrechnung'],['wecker','⏰','Wecker mit Aufgabe','Klingelt, bis du wirklich wach bist'],
- ['handy','🧹','Handy aufräumen','Doppelte Fotos, Alben, Speicher frei machen'],['spiel','🏆','Punkte & Motivation','Punkte, Titel, Spar-Topf, Freizeit-Sperre']];
+ ['handy','🧹','Handy aufräumen','Doppelte Fotos, Alben, Speicher frei machen'],['spiel','🏆','Punkte & Motivation','Punkte, Titel, Spar-Topf, Freizeit-Sperre'],['gewerbe','💼','Gewerbe-Kasse','Einnahmen, Ausgaben und Belege fürs Nebengewerbe']];
 
 /* ---------- Einrichtung (erster Start, einmal auch für bisherige Nutzer) ---------- */
 function setupStart(again){let step=0;const old=!!(S.tasks.length||S.events.length||S.docs.length)&&!again;const el=document.createElement('div');el.id='setupScr';document.body.appendChild(el);
@@ -46,6 +46,7 @@ function vMehr(){const L=level();const nx=typeof wNextAll==='function'?wNextAll(
   [mod('papier'),'brief','✉️','Briefe','Kündigung, Einspruch …'],
   [mod('papier'),'goFristen','🪪','Ausweise & Fristen',`${(S.ablauf||[]).length} Ausweise · ${(S.warranties||[]).length} Garantien`],
   [mod('haus'),'goHaus','🏠','Vermietung','Miete, Zähler, Nebenkosten'],
+  [mod('gewerbe'),'gwOpen','💼','Gewerbe-Kasse',(()=>{if(typeof gwYear!=='function')return'Einnahmen & Ausgaben';const Y=gwYear(new Date().getFullYear());return`Gewinn ${eur(Y.gewinn)}`})()],
   [mod('kalender'),'planScan','📸','Plan scannen','Dienstplan → Termine'],
   [mod('handy'),'goAufr','🧹','Handy aufräumen','Doppelte, Alben, Personen'],
   [mod('spiel'),'motiv','🏆','Punkte & Spar-Topf',`${L.title} · ${eur(potNow())}`],
@@ -60,6 +61,7 @@ function vMehr(){const L=level();const nx=typeof wNextAll==='function'?wNextAll(
 function plusTiles(){return`<div class="plus-or"><span>oder</span></div><div class="plus-tiles">
  <label class="ptile" for="spCam"><span>📷</span><b>Foto</b><small>Rechnung, Brief, Dienstplan</small></label><label class="ptile" for="spGal"><span>🖼️</span><b>Aus Galerie</b><small>wird automatisch erkannt</small></label>
  <button class="ptile" data-act="kopf"><span>🧠</span><b>Kopf leeren</b><small>mehrere Gedanken</small></button>
+ ${mod('gewerbe')?'<button class="ptile" data-act="gwPlus"><span>💼</span><b>Gewerbe-Beleg</b><small>Einnahme oder Ausgabe</small></button>':''}
  ${mod('papier')?'<button class="ptile" data-act="brief"><span>✉️</span><b>Brief</b><small>Kündigung & Co.</small></button>':''}
  ${mod('wecker')?'<button class="ptile" data-act="wecker"><span>⏰</span><b>Wecker</b><small>mit Aufgabe</small></button>':''}
  </div><input type="file" id="spCam" accept="image/*" capture="environment" hidden><input type="file" id="spGal" accept="image/*" hidden>`}

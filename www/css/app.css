@@ -470,3 +470,27 @@ details.more>summary{cursor:pointer;padding:6px 0}
 .so-th i{position:absolute;right:3px;bottom:2px;font-style:normal;font-size:.7rem;color:#fff;text-shadow:0 0 3px #000}
 .so-more{align-self:center;color:var(--muted);font-size:.85rem;padding-left:4px}
 .so-g .btn.sm{align-self:flex-start}
+
+/* Gewerbe-Kasse */
+.gw-note{background:var(--paper-2);border:1px solid var(--line);border-radius:12px;padding:8px 12px;margin:2px 0 10px;color:var(--muted)}
+.gw-years{display:flex;gap:6px;flex-wrap:wrap}
+.gw-sums{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:10px 0}
+.gw-sum{background:var(--paper);border:1px solid var(--line);border-radius:var(--r);padding:10px 12px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.gw-sum span{font-size:.78rem;color:var(--muted)}.gw-sum b{font-size:1.15rem;font-family:var(--f-display);overflow-wrap:anywhere}
+.gw-sum.wide{grid-column:1/-1}.gw-sum.wide b{font-size:1.4rem}
+.gw-warn{border-color:color-mix(in srgb,var(--warn) 45%,var(--line));background:color-mix(in srgb,var(--warn) 9%,var(--paper))}
+.gw-months{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:3px;align-items:end;margin-bottom:6px}
+.gw-m{display:flex;flex-direction:column;align-items:center;gap:2px;background:none;border:1px solid transparent;border-radius:8px;padding:4px 0;color:var(--ink);min-width:0}
+.gw-m.on{border-color:var(--stamp);background:var(--stamp-soft)}
+.gw-m small{font-size:.62rem;color:var(--muted)}.gw-m .gw-ok{color:var(--ok);font-weight:700}
+.gw-bars{display:flex;gap:1px;align-items:flex-end;height:54px;width:100%;justify-content:center}
+.gw-bars i{display:block;width:38%;min-height:2px;border-radius:2px 2px 0 0}
+.gw-row{width:100%;text-align:left;background:none;border:0;border-top:1px solid var(--line);color:var(--ink);gap:10px}
+.gw-row:first-child{border-top:0}
+.gw-row .chip{margin:3px 4px 0 0}
+.gw-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.gw-hint{background:color-mix(in srgb,var(--warn) 10%,var(--paper));border-radius:8px;padding:6px 10px;margin:0}
+.gw-scan{background:var(--stamp-soft);border-radius:8px;padding:6px 10px}
+.gw-art,.gw-land{margin-bottom:10px}
+.linkish{color:var(--stamp);text-decoration:underline;cursor:pointer}
+.gw-abo{padding:10px 0;border-top:1px solid var(--line)}.gw-abo:first-child{border-top:0}
