@@ -80,6 +80,8 @@ const IDB={db:null,mem:new Map(),
  open(){return new Promise(res=>{try{const r=indexedDB.open('kleinkram',1);r.onupgradeneeded=()=>r.result.createObjectStore('imgs');r.onsuccess=()=>{this.db=r.result;res()};r.onerror=()=>res()}catch(e){res()}})},
  put(k,v){this.mem.set(k,v);if(!this.db)return Promise.resolve();return new Promise(res=>{try{const tx=this.db.transaction('imgs','readwrite');tx.objectStore('imgs').put(v,k);tx.oncomplete=res;tx.onerror=res}catch(e){res()}})},
  get(k){if(this.mem.has(k))return Promise.resolve(this.mem.get(k));if(!this.db)return Promise.resolve(null);return new Promise(res=>{try{const q=this.db.transaction('imgs').objectStore('imgs').get(k);q.onsuccess=()=>{if(q.result)this.mem.set(k,q.result);res(q.result||null)};q.onerror=()=>res(null)}catch(e){res(null)}})},
+ /* wie put, meldet aber zurück, ob es wirklich dauerhaft gespeichert wurde */
+ putOk(k,v){this.mem.set(k,v);if(!this.db)return Promise.resolve(false);return new Promise(res=>{try{const tx=this.db.transaction('imgs','readwrite');tx.objectStore('imgs').put(v,k);tx.oncomplete=()=>res(true);tx.onerror=tx.onabort=()=>res(false)}catch(e){res(false)}})},
  del(k){this.mem.delete(k);if(!this.db)return;try{this.db.transaction('imgs','readwrite').objectStore('imgs').delete(k)}catch(e){}}};
 
 /* ---------- Handy-Funktionen (nur in der App) ---------- */

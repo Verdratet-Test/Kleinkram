@@ -13,21 +13,26 @@ const gwPrevYM=ym=>{let[y,m]=ym.split('-').map(Number);m--;if(!m){m=12;y--}retur
 const gwDE=d=>d?`${d.slice(8,10)}.${d.slice(5,7)}.${d.slice(0,4)}`:'';
 const gwNum=n=>(Math.round((+n||0)*100)/100).toFixed(2).replace('.',',');
 /* Betrag lesen: „1.234,56“, „29,9“, „29.90“, „12 €“ – nie negativ */
-function gwParse(s){s=String(s??'').trim().replace(/[\s€]/g,'');if(!s)return null;if(/^-|−/.test(s)||/-$/.test(s))return'neg';
- if(s.includes(',')&&s.includes('.'))s=s.replace(/\./g,'').replace(',','.');else if(s.includes(','))s=s.replace(',','.');else if(/^\d{1,3}(\.\d{3})+$/.test(s))s=s.replace(/\./g,'');
- if(!/^\d+(\.\d+)?$/.test(s))return NaN;return Math.round(parseFloat(s)*100)/100}
+function gwParse(s){s=String(s??'').trim().replace(/[\s\u00a0€']|EUR/gi,'');if(!s)return null;s=s.replace(/^(\d[\d.]*),[-–—]$/,'$1,00');if(/[-−–]/.test(s))return'neg';
+ const c=s.lastIndexOf(','),d=s.lastIndexOf('.');
+ if(c>=0&&d>=0){const dec=c>d?',':'.',grp=dec===','?'.':',';s=s.split(grp).join('').replace(dec,'.')}
+ else if(c>=0){if((s.match(/,/g)||[]).length>1)return NaN;s=s.replace(',','.')}
+ else if(d>=0&&(/^\d{1,3}(\.\d{3})+$/.test(s)))s=s.replace(/\./g,'');
+ if(!/^\d+(\.\d+)?$/.test(s))return NaN;if(/\.\d{3,}$/.test(s))return'dec';return Math.round(parseFloat(s)*100)/100}
 const gwFound=()=>+gw().set.start.slice(0,4)||new Date().getFullYear();
 const gwYW=d=>{if(!d)return false;const md=d.slice(5);return md>='12-22'||md<='01-10'};
 const gwSign=it=>it.art==='ein'?1:-1;
 const gwFirmKey=w=>String(w||'').toLowerCase().replace(/\b(gmbh|ag|ug|ltd|limited|inc|llc|co|kg|se|b\.v\.|bv|sarl|s\.a\.)\b|[^a-zäöüß0-9]/g,'');
 
 /* ---------- Auswertung pro Jahr ---------- */
-function gwYear(y){const B=gw(),L=B.items.filter(it=>it.date&&it.date.startsWith(String(y)));const M=[...Array(12)].map(()=>({ein:0,aus:0,n:0}));const cats={};const ausl={};let ein=0,aus=0;
- L.forEach(it=>{const m=+it.date.slice(5,7)-1;if(it.art==='ein'){ein+=it.amount;M[m].ein+=it.amount}else{aus+=it.amount;M[m].aus+=it.amount}M[m].n++;
-  const c=cats[it.kat]=cats[it.kat]||{art:it.art,sum:0,n:0};c.sum+=it.amount;c.n++;
+/* gerechnet wird in ganzen Cent, damit sich keine Rundungsfehler aufsummieren */
+const gwCt=v=>Math.round((+v||0)*100);
+function gwYear(y){const B=gw(),L=B.items.filter(it=>it.date&&it.date.startsWith(String(y)+'-'));const M=[...Array(12)].map(()=>({ein:0,aus:0,n:0}));const cats={};const ausl={};let ein=0,aus=0;
+ L.forEach(it=>{const m=+it.date.slice(5,7)-1,c=gwCt(it.amount);if(it.art==='ein'){ein+=c;M[m].ein+=c}else{aus+=c;M[m].aus+=c}M[m].n++;
+  const g=cats[it.kat]=cats[it.kat]||{art:it.art,sum:0,n:0};g.sum+=c;g.n++;
   if(it.art==='aus'&&it.ausland&&it.ausland!=='nein'){(ausl[m]=ausl[m]||[]).push(it)}});
- const r=v=>Math.round(v*100)/100;M.forEach(x=>{x.ein=r(x.ein);x.aus=r(x.aus)});Object.values(cats).forEach(c=>c.sum=r(c.sum));
- return{L,M,cats,ausl,ein:r(ein),aus:r(aus),gewinn:r(ein-aus)}}
+ M.forEach(x=>{x.ein/=100;x.aus/=100});Object.values(cats).forEach(g=>g.sum/=100);
+ return{L,M,cats,ausl,ein:ein/100,aus:aus/100,gewinn:(ein-aus)/100}}
 const gwYears=()=>{const s=new Set(gw().items.map(it=>+it.date.slice(0,4)));s.add(new Date().getFullYear());s.add(gwFound());return[...s].filter(Boolean).sort((a,b)=>b-a)};
 function gwLimit(y,ein){const fy=gwFound(),prev=gwYear(y-1).ein;
  if(y<fy)return{max:25000,txt:'Vor dem Gewerbebeginn.'};
@@ -41,9 +46,10 @@ function syncGewerbe(){if(typeof mod!=='function'||!mod('gewerbe'))return;const 
  if(!B.enabledYM){B.enabledYM=cur;ch=true}
  const startYM=[gwYM(B.set.start),B.enabledYM].sort()[1];
  S.tasks.forEach(x=>{if(x.gwMonth&&x.done&&!B.done[x.gwMonth]){B.done[x.gwMonth]=x.done;ch=true}});
- const P=gwPrevYM(cur);
- if(P>=startYM&&!B.done[P]&&!B.genM[P]&&!S.tasks.some(x=>x.gwMonth===P&&!x.archived)){const[y,m]=P.split('-');
-  S.tasks.push(gwTask({title:`Gewerbe-Kasse: Belege ${MONL[+m-1]} ${y} eintragen`,due:addDays(cur+'-01',6),gwMonth:P,steps:[{t:'Mehr → Gewerbe-Kasse öffnen',done:false},{t:'Belege scannen oder eintragen',done:false},{t:'Monat als vollständig markieren',done:false}]}));B.genM[P]=1;ch=true}
+ /* für jeden abgeschlossenen Monat seit Beginn (höchstens 12 zurück) – auch wenn die App einen Monat lang nicht offen war */
+ let P=gwPrevYM(cur);const todo=[];for(let i=0;i<12&&P>=startYM;i++){todo.unshift(P);P=gwPrevYM(P)}
+ todo.forEach(P=>{if(B.done[P]||B.genM[P]||S.tasks.some(x=>x.gwMonth===P&&!x.archived))return;const[y,m]=P.split('-');
+  S.tasks.push(gwTask({title:`Gewerbe-Kasse: Belege ${MONL[+m-1]} ${y} eintragen`,due:addDays(cur+'-01',6),gwMonth:P,steps:[{t:'Mehr → Gewerbe-Kasse öffnen',done:false},{t:'Belege scannen oder eintragen',done:false},{t:'Monat als vollständig markieren',done:false}]}));B.genM[P]=1;ch=true});
  const age=B.lastBackup?diff(B.lastBackup,t):999;
  if(B.items.length&&age>=30&&B.genB!==cur&&!S.tasks.some(x=>x.gwBackup&&!x.done&&!x.archived)){S.tasks.push(gwTask({title:'Gewerbe-Kasse sichern',due:addDays(t,3),gwBackup:true,steps:[{t:'Mehr → Gewerbe-Kasse → Sicherung',done:false},{t:'Datei an einen Ort außerhalb des Handys teilen (z. B. Google Drive, E-Mail an dich, PC)',done:false}]}));B.genB=cur;ch=true}
  if(ch)save()}
@@ -159,28 +165,32 @@ function gwForm(id,pre,after){const B=gw(),old=id?B.items.find(x=>x.id===id):nul
   if($s('#gSp')){$s('#gSp').onchange=splitCalc;$s('#gSb').oninput=splitCalc}
   $s('#gA').addEventListener('input',()=>{if(/-|−/.test(val('gA'))){$s('#gA').value=val('gA').replace(/[-−]/g,'');$s('#gE').textContent='Beträge immer ohne Minus eintragen – Einnahme oder Ausgabe ergibt sich aus der Art.'}else $s('#gE').textContent=''});
   $s('#gW').addEventListener('change',()=>{const k=gwFirmKey(val('gW')),m=B.firm[k];if(m&&!old){if(m.art===art&&(art==='ein'?GW_EIN:GW_AUS).includes(m.kat))$s('#gK').value=m.kat;if(art==='aus'&&m.land){land=m.land;s.querySelectorAll('[data-land]').forEach(x=>x.classList.toggle('on',x.dataset.land===land))}telCalc();hints()}});
+  const hasOld=()=>file===undefined?!!fileMeta:!!file;
+  $s('#gFi').onclick=ev=>{if(old&&old.file&&file===undefined&&!$s('#gFi').dataset.ok){ev.preventDefault();gwInlineAsk($s('#gFile'),'Vorhandenen Beleg durch einen neuen ersetzen? Der alte Beleg wird dann gelöscht.','Ersetzen',()=>{$s('#gFi').dataset.ok='1';$s('#gFi').click()})}};
   $s('#gFi').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;
    if(f.type==='application/pdf'){if(f.size>12e6){toast('Die PDF ist größer als 12 MB.');return}file=await new Promise(r=>{const fr=new FileReader();fr.onload=()=>r(fr.result);fr.readAsDataURL(f)});fileMeta={mime:'application/pdf'}}
    else{try{const im=await prepDoc(f);file=canvasOf(im,1600).toDataURL('image/jpeg',.8);fileMeta={mime:'image/jpeg'}}catch(er){toast('Das Bild ließ sich nicht öffnen.');return}}
    $s('#gBe').checked=true;showFile();hints()};
-  $s('#gFx').onclick=()=>{file=null;fileMeta=null;showFile()};
+  $s('#gFx').onclick=()=>{if(!hasOld())return;gwInlineAsk($s('#gFile'),'Beleg wirklich entfernen? Belege müssen 8 Jahre aufgehoben werden.','Entfernen',()=>{file=null;fileMeta=null;showFile()})};
   splitCalc();hints();
   $s('#gS').onclick=async()=>{const E=t=>{$s('#gE').textContent=t;return false};const d=val('gD');if(!/^\d{4}-\d{2}-\d{2}$/.test(d))return E('Bitte ein Zahlungsdatum wählen.');
    let a=gwParse(val('gA'));let sb=null,sg=null;
-   if(split()){sb=gwParse(val('gSb'));sg=gwParse(val('gSg'));if(sb==='neg'||sg==='neg')return E('Beträge immer ohne Minus eintragen.');if(!(sb>0))return E('Bitte den Verkauf brutto eintragen.');if(sg===null||sg==='')sg=0;if(!(sg>=0)||Number.isNaN(sg))return E('Die Gebühr ist keine gültige Zahl.');if(sg>sb)return E('Die Gebühr ist größer als der Verkauf.');a=sb}
-   if(a==='neg')return E('Beträge immer ohne Minus eintragen – Einnahme oder Ausgabe ergibt sich aus der Art.');if(a===null)return E('Bitte einen Betrag eintragen.');if(Number.isNaN(a)||!(a>0))return E('Der Betrag ist keine gültige Zahl (z. B. 29,90).');if(a>1e7)return E('Der Betrag ist unrealistisch hoch.');
+   if(split()){sb=gwParse(val('gSb'));sg=gwParse(val('gSg'));if(sb==='neg'||sg==='neg')return E('Beträge immer ohne Minus eintragen.');if(sb==='dec'||sg==='dec')return E('Höchstens zwei Nachkommastellen (Cent).');if(!(sb>0))return E('Bitte den Verkauf brutto eintragen.');if(sg===null||sg==='')sg=0;if(!(sg>=0)||Number.isNaN(sg))return E('Die Gebühr ist keine gültige Zahl.');if(sg>sb)return E('Die Gebühr ist größer als der Verkauf.');a=sb}
+   if(a==='neg')return E('Beträge immer ohne Minus eintragen – Einnahme oder Ausgabe ergibt sich aus der Art.');if(a==='dec')return E('Höchstens zwei Nachkommastellen (Cent).');if(a===null)return E('Bitte einen Betrag eintragen.');if(Number.isNaN(a)||!(a>0))return E('Der Betrag ist keine gültige Zahl (z. B. 29,90).');if(a>1e7)return E('Der Betrag ist unrealistisch hoch.');
    const rec={art,date:d,inv:val('gR')||'',amount:a,wer:val('gW').trim(),wofuer:val('gF').trim(),kat:$s('#gK').value,ausland:art==='ein'?'nein':land,beleg:$s('#gBe').checked,note:val('gN').trim()};
    if(tel()){const f=gwParse(val('gTf'));const p=parseFloat(String(B.set.tel).replace(',','.'));if(typeof f==='number'&&f>0){rec.full=f;if(p>0)rec.pct=p}else{rec.full=null;rec.pct=null}}else{rec.full=null;rec.pct=null}
    let target;
-   if(old){const ch=[];const NM={art:'Art',date:'Datum',inv:'Rechnungsdatum',amount:'Betrag',wer:'Wer',wofuer:'Wofür',kat:'Kategorie',ausland:'Ausland',beleg:'Beleg',note:'Notiz'};
+   if(old){const ch=[];const NM={art:'Art',date:'Datum',inv:'Rechnungsdatum',amount:'Betrag',wer:'Wer',wofuer:'Wofür',kat:'Kategorie',ausland:'Ausland',beleg:'Beleg',note:'Notiz',full:'Rechnungsbetrag Telefon',pct:'Anteil %'};
     Object.keys(NM).forEach(k=>{if(String(old[k]??'')!==String(rec[k]??''))ch.push(k==='amount'?`Betrag ${gwNum(old.amount)} → ${gwNum(rec.amount)}`:NM[k])});
     if(file!==undefined)ch.push(file?'Beleg ersetzt':'Beleg entfernt');Object.assign(old,rec);old.hist=old.hist||[];if(ch.length)old.hist.push({at:today(),txt:ch.join(', ')});old.changed=Date.now();target=old}
    else{target=Object.assign({id:uid(),created:Date.now(),hist:[]},rec);B.items.push(target);
     if(split()&&sg>0){const fee={id:uid(),created:Date.now()+1,hist:[],art:'aus',date:d,inv:rec.inv,amount:sg,wer:B.set.pay,wofuer:`Gebühr zu: ${rec.wofuer||rec.wer||'Verkauf'}`,kat:GW_FEE,ausland:'nein',beleg:rec.beleg,note:'',pair:target.id};target.pair=fee.id;B.items.push(fee)}
     const ab=$s('#gAbo');if(ab&&ab.checked&&art==='aus'){B.abos.push({id:uid(),wer:rec.wer,wofuer:rec.wofuer,kat:rec.kat,amount:rec.amount,ausland:rec.ausland,full:rec.full,day:+d.slice(8,10),from:gwYM(addMonths(d,1)),active:true})}}
-   if(file!==undefined){if(file){await IDB.put('gw-'+target.id,file);target.file=fileMeta}else{try{await IDB.del('gw-'+target.id)}catch(e){}target.file=null}}
+   let fileOk=true;
+   if(file!==undefined){if(file){fileOk=await IDB.putOk('gw-'+target.id,file);target.file=fileMeta}else{try{await IDB.del('gw-'+target.id)}catch(e){}target.file=null}}
    if(rec.wer)B.firm[gwFirmKey(rec.wer)]={art,kat:rec.kat,land:rec.ausland};
-   save();closeSheet();toast(old?'Gespeichert':'Gebucht');if(after)after(target);render()};
+   const saved=gwSave();closeSheet();if(after)after(target);render();
+   if(!saved||!fileOk)gwSaveFail(!saved,!fileOk);else toast(old?'Gespeichert':'Gebucht')};
   const del=$s('#gDel');if(del)del.onclick=()=>confirmSheet('Buchung löschen?',`${old.wer||old.kat} · ${eur(old.amount)} am ${gwDE(old.date)}. Sie kommt in den Papierkorb der Gewerbe-Kasse und lässt sich dort wiederherstellen. Belege müssen 8 Jahre aufgehoben werden.`,'In den Papierkorb',()=>{gwDelete(old.id);toast('In den Papierkorb gelegt');render()},true,()=>gwForm(id))})}
 function gwDelete(id){const B=gw(),i=B.items.findIndex(x=>x.id===id);if(i<0)return;const it=B.items.splice(i,1)[0];it.deleted=today();B.trash.push(it);if(it.pair){const p=B.items.find(x=>x.id===it.pair);if(p)delete p.pair;delete it.pair}save()}
 function gwTrashSheet(){const B=gw();sheet(`<h2>Papierkorb der Gewerbe-Kasse</h2><p class="small muted">Gelöschte Buchungen samt Beleg. Belege müssen 8 Jahre aufgehoben werden – endgültig löschen nur, wenn die Buchung wirklich falsch war.</p>
@@ -215,11 +225,13 @@ function gwSetSheet(){const B=gw(),S2=B.set;sheet(`<h2>Einstellungen Gewerbe-Kas
 
 /* ---------- CSV ---------- */
 function gwCsv(y){const L=gw().items.filter(it=>it.date.startsWith(String(y))).sort((a,b)=>a.date.localeCompare(b.date)||(a.created||0)-(b.created||0));
- const q=v=>{v=String(v??'').replace(/\r?\n/g,' ');return/[;"]/.test(v)||/^\s|\s$/.test(v)?`"${v.replace(/"/g,'""')}"`:v};
+ /* Text so schreiben, dass jede Tabelle ihn richtig liest: Zeilenumbrüche raus, Semikolon/Komma/Anführungszeichen in Anführungszeichen,
+    und Text, der mit = + - @ beginnt, bekommt ein Hochkomma – sonst würde Excel ihn als Formel ausführen. */
+ const q=(v,num)=>{v=String(v??'').replace(/[\r\n\t]+/g,' ').trim();if(!num&&/^[=+\-@]/.test(v))v="'"+v;return!num&&/[;,"]/.test(v)?`"${v.replace(/"/g,'""')}"`:v};
  const rows=[['Datum','Art','Betrag (€)','Wer','Wofür','Kategorie','Ausland?','Beleg da','Notiz']];
  L.forEach(it=>{const extra=[it.inv?`Rechnungsdatum ${gwDE(it.inv)}`:'',it.full?`Rechnung ${gwNum(it.full)} €${it.pct?`, Anteil ${String(it.pct).replace('.',',')} %`:''}`:'',it.pair?(it.art==='ein'?'Verkauf brutto, Gebühr separat gebucht':'Gebühr zum Verkauf'):''].filter(Boolean);
   rows.push([gwDE(it.date),it.art==='ein'?'Einnahme':'Ausgabe',gwNum(it.amount),it.wer,it.wofuer,it.kat,GW_LAND[it.ausland||'nein'],it.beleg?'ja':'nein',[it.note,...extra].filter(Boolean).join(' · ')])});
- return'﻿'+rows.map(r=>r.map(q).join(';')).join('\r\n')+'\r\n'}
+ return'\uFEFF'+rows.map((r,i)=>r.map((v,k)=>q(v,i>0&&(k===0||k===2))).join(';')).join('\r\n')+'\r\n'}
 const gwTxtBytes=s=>new TextEncoder().encode(s);
 function gwB64(dataUrl){const b=atob(String(dataUrl).split(',')[1]||'');const u=new Uint8Array(b.length);for(let i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return u}
 function gwOut(name,bytes,mime,what){sheet(`<h2>${esc(what)}</h2><p class="small muted">${esc(name)} · ${fmtB(bytes.length)}</p><p class="small muted">„Speichern“ legt die Datei unter Dokumente/Kleinkram ab. „Teilen“ öffnet die Android-Auswahl (z. B. Drive, E-Mail an dich, Drucken) – verschickt wird erst, wenn du dort bestätigst.</p>
@@ -262,7 +274,7 @@ async function gwBackupSheet(){const data=await gwBackupData(),name=`kleinkram-g
  <p class="small muted">Die Gewerbe-Kasse ist außerdem in der normalen Kleinkram-Sicherung enthalten.</p>
  <div class="sheet-foot stack"><button class="btn pri block" id="gbT">Teilen (Drive, E-Mail, PC …)</button><button class="btn block" id="gbS">Auf dem Handy speichern</button></div>`,s=>{
   s.querySelector('#gbT').onclick=async()=>{const ok=await shareBin(name,bytes,'application/json');if(ok){gwBackedUp(true);closeSheet();toast('Sicherung geteilt – danke!')}};
-  s.querySelector('#gbS').onclick=()=>{if(saveBin(name,bytes,'application/json')){gwBackedUp(false);closeSheet()}}})}
+  s.querySelector('#gbS').onclick=async()=>{if(CAP){try{await capWriteBin(name,bytes,'DOCUMENTS');gwBackedUp(false);closeSheet();toast('Gespeichert unter Dokumente/Kleinkram – bitte zusätzlich außerhalb des Handys sichern')}catch(e){toast('Speichern ging nicht. Bitte „Teilen“ nutzen.')}}else if(saveBin(name,bytes,'application/json')){gwBackedUp(false);closeSheet()}}})}
 function gwRestoreSheet(){sheet(`<h2>Sicherung der Gewerbe-Kasse einspielen</h2><p class="small muted">Datei „kleinkram-gewerbe-….json“ wählen. Vor dem Einspielen siehst du, was drin ist.</p><label class="btn block" for="grF">Datei wählen</label><input type="file" id="grF" accept=".json,application/json" hidden>`,s=>{
  s.querySelector('#grF').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{let o;try{o=JSON.parse(String(r.result))}catch(er){toast('Das ist keine gültige Sicherung.');return}
   if(!o||o.kind!=='kleinkram-gewerbe'||!o.biz||!Array.isArray(o.biz.items)){toast(o&&o.v===1&&o.tasks?'Das ist eine normale Kleinkram-Sicherung – die spielst du unter Mehr → Daten & Sicherung ein.':'Das ist keine Sicherung der Gewerbe-Kasse.');return}gwRestorePreview(o)};r.readAsText(f)}})}
@@ -272,12 +284,18 @@ function gwRestorePreview(o){const B=gw(),ids=new Set(B.items.map(x=>x.id));cons
   s.querySelector('#grM').onclick=async()=>{const n=await gwMerge(o);closeSheet();toast(`${n} Buchungen ergänzt oder aktualisiert`);render()};
   s.querySelector('#grR').onclick=()=>confirmSheet('Gewerbe-Kasse ersetzen?',`Aktuell ${B.items.length} Buchungen auf diesem Gerät. Sie werden durch die ${o.biz.items.length} Buchungen aus der Sicherung ersetzt.`,'Ersetzen',async()=>{await gwReplace(o);toast('Sicherung eingespielt');render()},true,()=>gwRestorePreview(o))})}
 async function gwPutFiles(o,only){for(const[k,v]of Object.entries(o.files||{}))if(!only||only.has(k))await IDB.put(k,v)}
-async function gwMerge(o){const B=gw();let n=0;const need=new Set();const mergeList=(dst,src)=>{src.forEach(x=>{const i=dst.findIndex(y=>y.id===x.id);if(i<0){dst.push(x);n++;if(x.file)need.add('gw-'+x.id)}else if((x.changed||x.created||0)>(dst[i].changed||dst[i].created||0)){dst[i]=x;n++;if(x.file)need.add('gw-'+x.id)}})};
- const liveIds=new Set(B.items.map(x=>x.id));mergeList(B.items,o.biz.items);mergeList(B.trash,(o.biz.trash||[]).filter(x=>!liveIds.has(x.id)));
- B.trash=B.trash.filter(x=>!B.items.some(y=>y.id===x.id));
- (o.biz.abos||[]).forEach(a=>{if(!B.abos.some(x=>x.id===a.id))B.abos.push(a)});Object.assign(B.aboDone,o.biz.aboDone||{});Object.assign(B.done,o.biz.done||{});Object.entries(o.biz.firm||{}).forEach(([k,v])=>{if(!B.firm[k])B.firm[k]=v});
- await gwPutFiles(o,need);save();return n}
+async function gwMerge(o){const r=gwMergeBiz(gw(),o.biz);await gwPutFiles(o,r.files);save();return r.n}
 async function gwReplace(o){const old=gw();for(const it of[...old.items,...old.trash])if(it.file){try{await IDB.del('gw-'+it.id)}catch(e){}}S.biz=o.biz;gw();await gwPutFiles(o);save()}
+
+/* ---------- Absicherung: wirklich gespeichert? ---------- */
+try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}
+function gwSave(){save();try{const o=JSON.parse(localStorage.getItem(KEY)||'null');return!!(o&&o.biz&&o.biz.items.length===gw().items.length&&o.biz.trash.length===gw().trash.length)}catch(e){return false}}
+function gwSaveFail(data,file){sheet(`<h2>⚠️ Nicht dauerhaft gespeichert</h2><p>${data?'Die Buchung konnte auf diesem Gerät nicht gespeichert werden (Speicher voll oder gesperrt). Nach einem Neustart wäre sie weg.':'Der Beleg (Foto/PDF) konnte nicht dauerhaft gespeichert werden.'}</p><p class="small muted">Bitte jetzt eine Sicherung teilen und Speicherplatz auf dem Handy freimachen.</p><div class="sheet-foot"><button class="btn pri block" data-act="gwBackup">Jetzt sichern</button></div>`)}
+function gwInlineAsk(box,txt,ok,fn){const d=document.createElement('div');d.className='card gw-warn';d.innerHTML=`<p class="small">${esc(txt)}</p><div class="row" style="gap:6px"><button class="btn sm" type="button">Abbrechen</button><button class="btn sm danger" type="button">${esc(ok)}</button></div>`;box.prepend(d);const[b1,b2]=d.querySelectorAll('button');b1.onclick=()=>d.remove();b2.onclick=()=>{d.remove();fn()}}
+/* Gewerbe-Kasse aus einer anderen Fassung dazunehmen (Sicherung): fehlende Buchungen dazu, bei gleichen die neuere Fassung */
+function gwMergeBiz(B,src){let n=0;const files=new Set();const mergeList=(dst,list)=>{(list||[]).forEach(x=>{const i=dst.findIndex(y=>y.id===x.id);if(i<0){dst.push(x);n++;if(x.file)files.add('gw-'+x.id)}else if((x.changed||x.created||0)>(dst[i].changed||dst[i].created||0)){dst[i]=x;n++;if(x.file)files.add('gw-'+x.id)}})};
+ mergeList(B.items,src.items);const live=new Set(B.items.map(x=>x.id));mergeList(B.trash,(src.trash||[]).filter(x=>!live.has(x.id)));B.trash=B.trash.filter(x=>!B.items.some(y=>y.id===x.id));
+ (src.abos||[]).forEach(a=>{if(!B.abos.some(x=>x.id===a.id))B.abos.push(a)});Object.assign(B.aboDone,src.aboDone||{});Object.assign(B.done,src.done||{});Object.entries(src.firm||{}).forEach(([k,v])=>{if(!B.firm[k])B.firm[k]=v});return{n,files}}
 
 /* ---------- Aktionen ---------- */
 document.addEventListener('click',async e=>{const b=e.target.closest&&e.target.closest('[data-act]');if(!b)return;const a=b.dataset.act;if(!/^gw/.test(a))return;e.stopPropagation();
