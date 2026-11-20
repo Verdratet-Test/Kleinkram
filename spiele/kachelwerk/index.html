@@ -1,0 +1,1392 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}</style>
+</head>
+<body>
+<!-- INHALT-ANFANG -->
+<title>Kachelwerk</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600..800&family=Figtree:wght@400;500;600;700;800&display=swap">
+<style>
+/* Werkbank von oben: Kopfzeile mit Auftrag und Ziel, Werkzeugleiste, das 8×8-Kachelraster, die Ablage mit drei Teilen. Eine Spalte, Handy zuerst. */
+:root{
+  --bg:#F2F4FA; --surface:#FFFFFF; --surface-2:#E5E9F3; --line:#D3D9E8;
+  --ink:#15224B; --ink-soft:#56628C; --accent:#2347B5; --on-accent:#FFFFFF;
+  --grout:#C9D1E3; --cell:#E3E8F2; --hl:#FFFFFF; --orn:rgba(255,255,255,.24); --pat:rgba(255,255,255,.62);
+  --gold:#C08512; --gold-hi:#F4C653; --good:#1F7F57; --bad:#B4323F;
+  --g0:#2347B5; --g1:#21876A; --g2:#D08E1C; --g3:#AD2E3B; --g4:#6A47A6; --stone:#8D93A6;
+  --scrim:rgba(21,34,75,.45); --shadow:0 14px 34px -14px rgba(16,28,70,.45);
+  --f-display:"Bricolage Grotesque","Avenir Next","Segoe UI",system-ui,sans-serif;
+  --f-body:"Figtree",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0D1330; --surface:#151D40; --surface-2:#1D2752; --line:#2B3668;
+    --ink:#E7ECF9; --ink-soft:#9DA9D2; --accent:#7F9CFF; --on-accent:#0D1330;
+    --grout:#080C22; --cell:#19224B; --hl:#FFF3C9; --orn:rgba(255,255,255,.2); --pat:rgba(255,255,255,.58);
+    --gold:#E4AC37; --gold-hi:#FFD877; --good:#4CC28E; --bad:#F2707E;
+    --g0:#4A6FE6; --g1:#2FA882; --g2:#DDA136; --g3:#CF4856; --g4:#8D6AD6; --stone:#5E688C;
+    --scrim:rgba(3,6,20,.62); --shadow:0 14px 34px -12px rgba(0,0,0,.7);
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0D1330; --surface:#151D40; --surface-2:#1D2752; --line:#2B3668;
+  --ink:#E7ECF9; --ink-soft:#9DA9D2; --accent:#7F9CFF; --on-accent:#0D1330;
+  --grout:#080C22; --cell:#19224B; --hl:#FFF3C9; --orn:rgba(255,255,255,.2); --pat:rgba(255,255,255,.58);
+  --gold:#E4AC37; --gold-hi:#FFD877; --good:#4CC28E; --bad:#F2707E;
+  --g0:#4A6FE6; --g1:#2FA882; --g2:#DDA136; --g3:#CF4856; --g4:#8D6AD6; --stone:#5E688C;
+  --scrim:rgba(3,6,20,.62); --shadow:0 14px 34px -12px rgba(0,0,0,.7);
+  color-scheme:dark;
+}
+
+html{box-sizing:border-box;height:100%}
+*,*::before,*::after{box-sizing:inherit}
+body{height:100%;margin:0;background:var(--bg);color:var(--ink);font:500 15px/1.4 var(--f-body);overflow:hidden;-webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+
+#app{height:100%;max-width:470px;margin:0 auto;display:flex;flex-direction:column;gap:10px;padding-block:12px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+
+/* Kopfzeile */
+.hud{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:16px;align-items:center;flex:none}
+.stage{display:flex;flex-direction:column;gap:3px;line-height:1;background:none;border:0;padding:0;text-align:left}
+.lbl{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-soft);font-weight:800}
+.stage.boss .lbl{color:var(--g3)}
+.stage b{font:800 25px/1 var(--f-display);font-variant-numeric:tabular-nums}
+.goal{min-width:0}
+.goal-nums{display:flex;align-items:baseline;gap:6px;font-variant-numeric:tabular-nums;line-height:1}
+.goal-nums b{font:800 22px/1 var(--f-display)}
+.goal-nums span{color:var(--ink-soft);font-weight:700;font-size:13px}
+.bar{height:8px;border-radius:99px;background:var(--surface-2);margin-top:6px;overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:var(--accent);border-radius:inherit;transition:width .45s cubic-bezier(.2,.8,.2,1)}
+.bar.done i{background:var(--good)}
+.goal-sub{display:flex;justify-content:space-between;gap:8px;margin-top:5px;font-size:12px;color:var(--ink-soft);font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+.goal-sub b{color:var(--ink)}
+.coins{display:flex;align-items:center;gap:6px;font:800 22px/1 var(--f-display);font-variant-numeric:tabular-nums}
+.coins.bump{animation:bump .4s}
+.coin{display:inline-block;width:18px;height:18px;border-radius:50%;flex:none;background:radial-gradient(circle at 35% 30%,var(--gold-hi),var(--gold) 72%);box-shadow:inset 0 0 0 2px rgba(0,0,0,.14)}
+.coin.sm{width:13px;height:13px;vertical-align:-1px;margin-right:3px}
+
+/* Werkzeuge */
+.kit{display:flex;flex-direction:column;gap:6px;flex:none}
+.relics{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.rel{position:relative;height:40px;border-radius:9px;border:1.5px dashed var(--line);background:transparent;padding:0;display:flex;align-items:center;justify-content:center;color:var(--ink-soft);font-size:11px;font-weight:700}
+.rel.has{border:0}
+.rel .cnt{position:absolute;right:-4px;top:-6px;min-width:18px;height:18px;padding:0 4px;border-radius:99px;background:var(--ink);color:var(--bg);font:800 11px/18px var(--f-body);text-align:center}
+.rel.fire{animation:fire .55s ease-out}
+.info{margin:0;font-size:12.5px;line-height:1.3;color:var(--ink-soft);min-height:2.6em}
+.info.warn{color:var(--bad);font-weight:700}
+.info b{color:var(--ink)}
+
+/* Kacheln */
+.t{position:relative;border-radius:5px;background:var(--gc);box-shadow:inset 0 2px 0 rgba(255,255,255,.3),inset 0 -3px 0 rgba(0,0,0,.2)}
+.t::before{content:"";position:absolute;inset:0;border-radius:inherit;background:radial-gradient(circle at 0 0,var(--orn) 0 17%,transparent 18%),radial-gradient(circle at 100% 0,var(--orn) 0 17%,transparent 18%),radial-gradient(circle at 0 100%,var(--orn) 0 17%,transparent 18%),radial-gradient(circle at 100% 100%,var(--orn) 0 17%,transparent 18%)}
+.t::after{content:"";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%)}
+.g0{--gc:var(--g0)} .g1{--gc:var(--g1)} .g2{--gc:var(--g2)} .g3{--gc:var(--g3)} .g4{--gc:var(--g4)}
+.g0::after{width:24%;height:24%;border-radius:50%;background:var(--pat)}
+.g1::after{width:36%;height:36%;border-radius:50%;border:2px solid var(--pat)}
+.g2::after{width:26%;height:26%;background:var(--pat);transform:translate(-50%,-50%) rotate(45deg)}
+.g3::after{width:38%;height:38%;background:linear-gradient(var(--pat),var(--pat)) center/100% 24% no-repeat,linear-gradient(var(--pat),var(--pat)) center/24% 100% no-repeat}
+.g4::after{width:42%;height:16%;border-radius:99px;background:var(--pat)}
+.t.s-gold::after{width:54%;height:54%;border-radius:50%;border:0;background:radial-gradient(circle at 35% 30%,var(--gold-hi),var(--gold) 72%);box-shadow:0 0 0 2px rgba(0,0,0,.2);transform:translate(-50%,-50%)}
+.t.s-star::after{width:66%;height:66%;border:0;border-radius:0;background:#FFF6D4;clip-path:polygon(50% 0,61% 39%,100% 50%,61% 61%,50% 100%,39% 61%,0 50%,39% 39%);transform:translate(-50%,-50%)}
+.t.stone{--gc:var(--stone)}
+.t.stone::before{background:linear-gradient(135deg,transparent 45%,rgba(0,0,0,.3) 46% 51%,transparent 52%),linear-gradient(62deg,transparent 58%,rgba(0,0,0,.22) 59% 63%,transparent 64%)}
+.t.stone::after{display:none}
+
+/* Raster */
+.board-wrap{flex:1 1 0;min-height:0;display:flex;align-items:center;justify-content:center;position:relative}
+.board{width:var(--bs,320px);height:var(--bs,320px);display:grid;grid-template-columns:repeat(8,1fr);grid-template-rows:repeat(8,1fr);gap:3px;padding:6px;background:var(--grout);border-radius:14px;box-shadow:inset 0 2px 7px rgba(0,0,0,.14);touch-action:none}
+.c{position:relative;border-radius:5px;background:var(--cell);min-width:0}
+.c.t{background:var(--gc)}
+.c.pv{opacity:.5}
+.c.no{outline:2px solid var(--bad);outline-offset:-2px}
+.c.hl{outline:2px solid var(--hl);outline-offset:-2px;filter:brightness(1.14);animation:glow .9s ease-in-out infinite alternate}
+.c.aim{cursor:crosshair}
+.c.pop{animation:pop .17s ease-out}
+.c.clr{animation:clr .42s var(--d,0ms) both}
+.board.shake{animation:shake .35s}
+.calc{position:absolute;left:50%;top:16%;transform:translate(-50%,-50%) scale(.92);opacity:0;pointer-events:none;background:var(--surface);color:var(--ink);border-radius:14px;padding:10px 16px 11px;box-shadow:var(--shadow);text-align:center;min-width:200px;max-width:94%;transition:opacity .18s,transform .18s;z-index:5}
+.calc.show{opacity:1;transform:translate(-50%,-50%) scale(1)}
+.calc .eq{font:700 14px/1.2 var(--f-body);color:var(--ink-soft);font-variant-numeric:tabular-nums}
+.calc .eq b{font:800 17px var(--f-display);color:var(--ink)}
+.calc .pts{font:800 30px/1.05 var(--f-display);color:var(--accent);font-variant-numeric:tabular-nums}
+.calc ul{list-style:none;margin:5px 0 0;padding:0;font-size:12px;line-height:1.35;color:var(--ink-soft)}
+.calc li b{color:var(--ink)}
+
+/* Ablage */
+.tray{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;height:98px;flex:none}
+.slot{display:flex;align-items:center;justify-content:center;border-radius:12px;background:var(--surface);border:0;padding:0;touch-action:none;cursor:grab;box-shadow:inset 0 -2px 0 var(--line);min-width:0}
+.slot:disabled{cursor:default}
+.slot.sel{box-shadow:0 0 0 2.5px var(--accent)}
+.slot.aim{outline:2px dashed var(--accent);outline-offset:-4px}
+.slot.nofit .pc{opacity:.3}
+.slot.lift .pc{opacity:0}
+.slot.in .pc{animation:slotin .28s cubic-bezier(.2,.8,.2,1) both}
+.slot:nth-child(2).in .pc{animation-delay:.05s}
+.slot:nth-child(3).in .pc{animation-delay:.1s}
+.pc{display:grid;gap:2px;grid-template-columns:repeat(var(--w),var(--tc));grid-auto-rows:var(--tc);pointer-events:none}
+.pc i{display:block}
+.pc .t{border-radius:3px;box-shadow:inset 0 1px 0 rgba(255,255,255,.3),inset 0 -2px 0 rgba(0,0,0,.2)}
+
+/* Fußleiste */
+.acts{display:flex;align-items:center;gap:8px;flex:none}
+.btn{height:42px;padding:0 14px;border-radius:11px;border:0;background:var(--surface);color:var(--ink);font-weight:700;display:inline-flex;align-items:center;justify-content:center;gap:7px;box-shadow:inset 0 -2px 0 var(--line);white-space:nowrap}
+.btn:disabled{opacity:.42;cursor:default}
+.btn.pri{background:var(--accent);color:var(--on-accent);box-shadow:inset 0 -3px 0 rgba(0,0,0,.22),inset 0 1px 0 rgba(255,255,255,.22)}
+.btn.big{height:50px;font-size:16px;padding:0 20px}
+.btn.wide{width:100%}
+.btn small{font-weight:600;opacity:.8}
+.btn .n{min-width:20px;height:20px;padding:0 5px;border-radius:99px;background:var(--surface-2);color:var(--ink);font-size:12px;line-height:20px}
+.tool{padding:0 11px}
+.tool.empty{background:transparent;border:1.5px dashed var(--line);box-shadow:none;color:var(--ink-soft);font-weight:600}
+.tool.armed{background:var(--accent);color:var(--on-accent)}
+.spacer{flex:1}
+.icon-btn{width:42px;padding:0}
+.icon-btn svg{width:20px;height:20px}
+
+/* Monogramm-Kachel für Werkzeuge */
+.rt{display:flex;align-items:center;justify-content:center;width:100%;height:100%;border-radius:9px;color:#fff;font:800 15px/1 var(--f-display);letter-spacing:-.01em}
+.rt::after{display:none}
+.rt span{position:relative;z-index:1;text-shadow:0 1px 0 rgba(0,0,0,.25)}
+.rt.kniff{background:var(--surface-2);color:var(--ink);box-shadow:inset 0 -3px 0 var(--line)}
+.rt.kniff::before{display:none}
+
+/* Geist beim Ziehen */
+.ghost{position:fixed;left:0;top:0;z-index:40;pointer-events:none;display:grid;gap:var(--gg);grid-template-columns:repeat(var(--w),var(--gs));grid-auto-rows:var(--gs);filter:drop-shadow(0 12px 14px rgba(10,20,60,.35));will-change:transform}
+.ghost i{display:block}
+
+/* Fenster */
+.ov{position:fixed;inset:0;z-index:50;background:var(--scrim);display:flex;align-items:flex-end;justify-content:center}
+.sheet{width:100%;max-width:470px;max-height:100%;overflow:auto;overscroll-behavior:contain;background:var(--bg);border-radius:22px 22px 0 0;padding-top:24px;padding-bottom:calc(22px + env(safe-area-inset-bottom,0px));padding-left:max(20px,env(safe-area-inset-left,0px));padding-right:max(20px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:12px;box-shadow:var(--shadow);animation:sheetin .26s cubic-bezier(.2,.8,.2,1)}
+@media (min-width:560px) and (min-height:640px){.ov{align-items:center;padding:20px}.sheet{border-radius:22px;max-height:calc(100% - 40px);padding-bottom:22px}}
+.ov.full{background:var(--bg);align-items:stretch;padding:0}
+.ov.full .sheet{max-width:none;max-height:none;height:100%;border-radius:0;box-shadow:none;animation:none;padding-top:calc(24px + env(safe-area-inset-top,0px))}
+.sheet h2{font:800 30px/1.04 var(--f-display);margin:0;letter-spacing:-.015em;text-wrap:balance}
+.sheet h3{margin:0;font:700 16px/1.2 var(--f-display)}
+.sheet h4{margin:8px 0 0;font:800 12px/1.2 var(--f-body);letter-spacing:.09em;text-transform:uppercase;color:var(--ink-soft);display:flex;justify-content:space-between;gap:8px}
+.sheet h4 small{font-weight:600;letter-spacing:0;text-transform:none}
+.sheet p{margin:0;color:var(--ink-soft);max-width:62ch}
+.sheet p b{color:var(--ink)}
+.kicker{font-size:11px;letter-spacing:.11em;text-transform:uppercase;font-weight:800;color:var(--accent)}
+.kicker.boss{color:var(--g3)}
+.head{display:flex;flex-direction:column;gap:6px}
+.head-row{display:flex;justify-content:space-between;align-items:flex-end;gap:12px}
+.row{display:flex;flex-wrap:wrap;gap:8px}
+.row .btn{flex:1 1 auto}
+.stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.stats.three{grid-template-columns:repeat(3,minmax(0,1fr))}
+.stat{background:var(--surface);border-radius:12px;padding:10px 12px;min-width:0}
+.stat b{display:block;font:800 23px/1.1 var(--f-display);font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.stat span{font-size:12px;color:var(--ink-soft);font-weight:600}
+.pay{list-style:none;padding:0;margin:0;display:flex;flex-direction:column}
+.pay li{display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums}
+.pay li span:last-child{font-weight:800;white-space:nowrap}
+.pay li.sum{border:0;font-weight:800}
+.card{display:grid;grid-template-columns:46px minmax(0,1fr) auto;gap:12px;align-items:center;background:var(--surface);border-radius:14px;padding:10px 12px}
+.card .ic{width:46px;height:46px}
+.card p{font-size:13px;line-height:1.35;margin-top:2px}
+.card.sold{opacity:.55}
+.card .btn{height:38px;padding:0 12px;min-width:66px}
+.rule{display:grid;grid-template-columns:40px minmax(0,1fr);gap:12px;align-items:center;background:var(--surface);border-radius:14px;padding:12px}
+.rule .t{width:40px;height:40px;border-radius:8px}
+.note{font-size:13px;background:var(--surface-2);border-radius:12px;padding:10px 12px;color:var(--ink)}
+.list{margin:0;padding-left:20px;color:var(--ink-soft);display:flex;flex-direction:column;gap:7px;max-width:62ch}
+.list b{color:var(--ink)}
+.keys{font-size:13px}
+kbd{font:700 12px var(--f-body);background:var(--surface);border-radius:5px;padding:1px 6px;box-shadow:inset 0 -2px 0 var(--line);color:var(--ink)}
+
+/* Titel */
+.title{width:100%;max-width:470px;margin:auto;display:flex;flex-direction:column;gap:16px}
+.strip{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:4px;max-width:300px;padding:5px;background:var(--grout);border-radius:10px}
+.strip i{display:block;aspect-ratio:1;border-radius:4px}
+.strip i.off{background:var(--cell);box-shadow:none}
+.strip i.off::before,.strip i.off::after{opacity:0}
+.strip i.pop{animation:pop .17s ease-out}
+.strip i.clr{animation:clr .42s both}
+.logo{font:800 clamp(46px,15vw,68px)/.92 var(--f-display);letter-spacing:-.035em;color:var(--accent);margin:0}
+.tag{font-size:16px;line-height:1.45;color:var(--ink-soft);margin:0;max-width:40ch}
+.best{font-size:13px;font-weight:700;color:var(--ink-soft);margin:0}
+.price{background:var(--surface);border-radius:16px;padding:14px 16px;display:flex;flex-direction:column;gap:8px}
+.price-top{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.price .amt{font:800 30px/1 var(--f-display);font-variant-numeric:tabular-nums}
+.price .amt small{font:700 13px var(--f-body);color:var(--ink-soft)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font-size:12px;font-weight:700;padding:4px 10px;border-radius:99px;background:var(--surface-2);color:var(--ink)}
+.why{background:var(--surface);border-radius:16px;padding:12px 16px}
+.why summary{cursor:pointer;font-weight:800;list-style-position:outside}
+.why .list{margin-top:10px;font-size:14px}
+.why .small{font-size:12.5px;margin-top:10px}
+
+@keyframes pop{from{transform:scale(.72)}to{transform:scale(1)}}
+@keyframes clr{0%{transform:scale(1)}35%{transform:scale(1.12);filter:brightness(1.9)}100%{transform:scale(.15);opacity:0}}
+@keyframes glow{from{filter:brightness(1.05)}to{filter:brightness(1.3)}}
+@keyframes fire{0%{transform:scale(1)}40%{transform:scale(1.18) rotate(-4deg)}100%{transform:scale(1)}}
+@keyframes bump{40%{transform:scale(1.2)}}
+@keyframes shake{20%{transform:translateX(-6px)}40%{transform:translateX(5px)}60%{transform:translateX(-3px)}80%{transform:translateX(2px)}}
+@keyframes slotin{from{transform:translateY(14px) scale(.85);opacity:0}to{transform:none;opacity:1}}
+@keyframes sheetin{from{transform:translateY(24px);opacity:.4}to{transform:none;opacity:1}}
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+}
+</style>
+
+<div id="app">
+  <header class="hud">
+    <button class="stage" id="hStageBtn" type="button" aria-label="Auftrag"><span class="lbl" id="hStageLbl">Auftrag</span><b id="hStage">1/9</b></button>
+    <div class="goal">
+      <div class="goal-nums"><b id="hScore">0</b><span>/ <span id="hTarget">300</span></span></div>
+      <div class="bar" id="hBarWrap"><i id="hBar"></i></div>
+      <div class="goal-sub"><span><b id="hLeft">24</b> Teile übrig</span><span>Serie <b id="hStreak">0</b></span></div>
+    </div>
+    <div class="coins" id="hCoins" aria-label="Münzen"><span class="coin"></span><span id="hCoinsN">0</span></div>
+  </header>
+
+  <section class="kit">
+    <div class="relics" id="relics"></div>
+    <p class="info" id="info" aria-live="polite"></p>
+  </section>
+
+  <div class="board-wrap" id="boardWrap">
+    <div class="board" id="board" role="grid" aria-label="Kachelraster 8 mal 8"></div>
+    <div class="calc" id="calc" aria-live="polite"></div>
+  </div>
+
+  <div class="tray" id="tray"></div>
+
+  <footer class="acts">
+    <button class="btn" id="bShuffle" type="button">Mischen <span class="n" id="bShuffleN">1</span></button>
+    <div class="row" id="tools" style="flex-wrap:nowrap"></div>
+    <span class="spacer"></span>
+    <button class="btn icon-btn" id="bMenu" type="button" aria-label="Menü"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+  </footer>
+</div>
+
+<div class="ov" id="ov" hidden><div class="sheet" id="sheet" role="dialog" aria-modal="true"></div></div>
+<div class="ghost" id="ghost" hidden></div>
+
+<script>
+(() => {
+'use strict';
+
+/* ================= Grundwerte ================= */
+const N = 8;
+const BASE_BUDGET = 24;
+// Kalibriert mit einem einfachen Bot: ohne Werkzeuge ~1.000 Punkte je Auftrag (24 Teile), mit 5 Werkzeugen ~4.000–5.600.
+const TARGETS = [300, 550, 900, 1300, 1900, 2600, 3500, 4600, 6000];
+const RUN_LEN = TARGETS.length;
+const MAX_REL = 5, MAX_TOOLS = 2;
+const SAVE_KEY = 'kachelwerk-lauf', BEST_KEY = 'kachelwerk-bestwert', SOUND_KEY = 'kachelwerk-ton';
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+const $ = s => document.querySelector(s);
+const fmt = n => Math.round(n).toLocaleString('de-DE');
+const rnd = n => Math.floor(Math.random() * n);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const wait = ms => new Promise(r => setTimeout(r, ms));
+function shuffle(a){ for (let i = a.length - 1; i > 0; i--){ const j = rnd(i + 1); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+function wpick(items, wf){
+  let t = 0; const ws = items.map(x => { const w = Math.max(0, wf(x)); t += w; return w; });
+  let r = Math.random() * t;
+  for (let i = 0; i < items.length; i++){ r -= ws[i]; if (r < 0) return items[i]; }
+  return items[items.length - 1];
+}
+const store = {
+  get(k, d){ try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} },
+  del(k){ try { localStorage.removeItem(k); } catch (e) {} }
+};
+
+/* ================= Formen ================= */
+function parse(m){ const out = []; m.forEach((row, r) => [...row].forEach((ch, c) => { if (ch === '#') out.push([r, c]); })); return out; }
+function norm(cells){
+  const mr = Math.min(...cells.map(x => x[0])), mc = Math.min(...cells.map(x => x[1]));
+  return cells.map(([r, c]) => [r - mr, c - mc]).sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+}
+const keyOf = cells => cells.map(x => x.join(',')).join(';');
+const rot = cells => norm(cells.map(([r, c]) => [c, -r]));
+const mir = cells => norm(cells.map(([r, c]) => [r, -c]));
+// Familie, Muster, Gewicht, gespiegelt?
+const FAMILIES = [
+  ['mono',   ['#'], 4],
+  ['duo',    ['##'], 6],
+  ['tri',    ['###'], 6],
+  ['quad',   ['####'], 5],
+  ['penta',  ['#####'], 2.5],
+  ['block',  ['##', '##'], 5],
+  ['gross',  ['###', '###', '###'], 1.6],
+  ['platte', ['###', '###'], 3],
+  ['eck',    ['##', '#.'], 6],
+  ['L',      ['#.', '#.', '##'], 6, true],
+  ['T',      ['###', '.#.'], 3.5],
+  ['S',      ['.##', '##.'], 3, true],
+  ['winkel', ['###', '#..', '#..'], 3],
+];
+const SHAPES = [];
+for (const [fam, m, w, mirror] of FAMILIES){
+  const seen = new Map();
+  const base = norm(parse(m));
+  for (const b of (mirror ? [base, mir(base)] : [base])){
+    let s = b;
+    for (let i = 0; i < 4; i++){ seen.set(keyOf(s), s); s = rot(s); }
+  }
+  const vars = [...seen.values()];
+  for (const cells of vars){
+    SHAPES.push({ fam, cells, n: cells.length, h: Math.max(...cells.map(x => x[0])) + 1, w: Math.max(...cells.map(x => x[1])) + 1, wt: w / vars.length });
+  }
+}
+
+/* ================= Werkzeuge, Kniffe, Meisterstücke ================= */
+const RELICS = {
+  spachtel:  { n:'Spachtel', m:'Sp', p:4, d:'+30 Basis je abgeräumter Linie.',
+               clear(c){ c.bump('spachtel', { b: 30 * c.lines }); } },
+  herz:      { n:'Herzstück', m:'Hz', p:3, d:'+60 Basis, wenn eines der vier Mittelfelder abgeräumt wird.',
+               clear(c){ if (c.has(27, 28, 35, 36)) c.bump('herz', { b: 60 }); } },
+  eckstein:  { n:'Eckstein', m:'Ec', p:5, d:'+3 Faktor, wenn eine Ecke des Rasters abgeräumt wird.',
+               clear(c){ if (c.has(0, 7, 56, 63)) c.bump('eckstein', { f: 3 }); } },
+  rahmen:    { n:'Rahmenleiste', m:'Ra', p:5, d:'+2 Faktor je abgeräumter Randlinie (äußerste Reihe oder Spalte).',
+               clear(c){ const k = c.rows.filter(r => r === 0 || r === 7).length + c.cols.filter(x => x === 0 || x === 7).length; if (k) c.bump('rahmen', { f: 2 * k }); } },
+  zange:     { n:'Kreuzzange', m:'Kz', p:6, d:'Reihe und Spalte im selben Zug abgeräumt: Punkte ×2.',
+               clear(c){ if (c.rows.length && c.cols.length) c.bump('zange', { m: 2 }); } },
+  glasur:    { n:'Reine Glasur', m:'Gl', p:6, d:'+5 Faktor je abgeräumter Linie, die nur eine Farbe hat.',
+               clear(c){ if (c.mono) c.bump('glasur', { f: 5 * c.mono }); } },
+  schwer:    { n:'Schwerlast', m:'Sw', p:4, d:'+4 Faktor, wenn ein Teil aus 5 oder mehr Kacheln abräumt.',
+               clear(c){ if (c.piece.n >= 5) c.bump('schwer', { f: 4 }); } },
+  fein:      { n:'Feinarbeit', m:'Fa', p:4, d:'+80 Basis, wenn ein Teil aus 1 oder 2 Kacheln abräumt.',
+               clear(c){ if (c.piece.n <= 2) c.bump('fein', { b: 80 }); } },
+  atem:      { n:'Langer Atem', m:'LA', p:6, d:'Die Serie zählt doppelt für den Faktor.' },
+  netz:      { n:'Sicherheitsnetz', m:'SN', p:4, d:'Die Serie übersteht einen Zug ohne Abräumen.' },
+  blank:     { n:'Blitzblank', m:'Bb', p:5, d:'Ist das Raster nach dem Abräumen leer: Punkte ×4.',
+               clear(c){ if (c.empty) c.bump('blank', { m: 4 }); } },
+  vitrine:   { n:'Vitrine', m:'Vi', p:6, d:'+1 Faktor je Werkzeug, das du besitzt.',
+               clear(c, G){ c.bump('vitrine', { f: G.relics.length }); } },
+  waage:     { n:'Goldwaage', m:'Gw', p:6, d:'+4 Basis je Münze, die du gerade besitzt.',
+               clear(c, G){ if (G.coins) c.bump('waage', { b: 4 * G.coins }); } },
+  lehrling:  { n:'Lehrling', m:'Le', p:5, d:'Wächst: +1 Faktor für immer, sooft du 3 oder mehr Linien auf einmal abräumst.',
+               clear(c, G, rel){ if (c.lines >= 3) rel.n = (rel.n || 0) + 1; if (rel.n) c.bump('lehrling', { f: rel.n }); } },
+  sparsam:   { n:'Sparsamer Meister', m:'SM', p:5, d:'+1 Faktor je 4 Teile, die im Auftrag noch übrig sind.',
+               clear(c){ const k = Math.floor(piecesLeft() / 4); if (k) c.bump('sparsam', { f: k }); } },
+  goldfuge:  { n:'Goldfuge', m:'Gf', p:5, d:'Goldkacheln erscheinen doppelt so oft und bringen je 2 Münzen.' },
+  sternstaub:{ n:'Sternstaub', m:'St', p:5, d:'Sternkacheln erscheinen häufiger und geben +4 statt +2 Faktor.' },
+  ofen:      { n:'Brennofen', m:'Bo', p:3, d:'+1 Mischen zu Beginn jedes Auftrags.' },
+  korb:      { n:'Großer Korb', m:'GK', p:5, d:'+4 Teile in jedem Auftrag.' },
+  schwein:   { n:'Sparschwein', m:'Ss', p:4, d:'Nach jedem Auftrag +1 Münze je 4 Münzen im Beutel (höchstens +5).' },
+};
+const TOOLS = {
+  hammer: { n:'Hammer', k:'Hammer', m:'Ha', p:2, d:'Schlägt eine einzelne Kachel aus dem Raster.', target:'cell', hint:'Tippe auf die Kachel, die raus soll.' },
+  abriss: { n:'Abriss', k:'Abriss', m:'Ab', p:3, d:'Räumt ein 3×3-Feld ab, ohne Punkte.', target:'cell', hint:'Tippe auf die Mitte des 3×3-Felds, das weg soll.' },
+  drehen: { n:'Drehscheibe', k:'Drehen', m:'Dr', p:2, d:'Dreht ein Teil in der Ablage um 90°.', target:'piece', hint:'Tippe auf das Teil in der Ablage, das du drehen willst.' },
+  rest:   { n:'Restkachel', k:'Rest', m:'Re', p:2, d:'Macht aus einem Teil in der Ablage eine einzelne Kachel.', target:'piece', hint:'Tippe auf das Teil, das zur Einzelkachel werden soll.' },
+};
+const BOSSES = {
+  risse:   { n:'Gesprungene Kacheln', d:'8 Steinkacheln liegen schon im Raster. Sie zählen beim Abräumen nicht zur Basis.' },
+  reihen:  { n:'Nur waagerecht', d:'Nur volle Reihen werden abgeräumt. Volle Spalten bleiben liegen.' },
+  schwer:  { n:'Schwere Lieferung', d:'Es kommen nur Teile mit 4 oder mehr Kacheln.' },
+  trocken: { n:'Trockene Fuge', d:'Kein Mischen und keine Kniffe in diesem Auftrag.' },
+  halb:    { n:'Billiger Ton', d:'Die Basis jedes Abräumens wird halbiert.' },
+  kurz:    { n:'Knapper Korb', d:'6 Teile weniger als sonst.' },
+};
+function relGlaze(id){ let h = 0; for (const ch of id) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return h % 5; }
+function relTile(id){ return `<span class="rt t g${relGlaze(id)}"><span>${RELICS[id].m}</span></span>`; }
+function toolTile(id){ return `<span class="rt kniff"><span>${TOOLS[id].m}</span></span>`; }
+
+/* ================= Zustand ================= */
+let G = null;
+const has = id => !!G && G.relics.some(r => r.id === id);
+const piecesLeft = () => G.budget + G.tray.filter(Boolean).length;
+const isBoss = i => i % 3 === 2;
+const inEndless = () => G.endless || G.stage >= RUN_LEN;
+function targetFor(i){
+  if (i < RUN_LEN) return TARGETS[i];
+  return Math.round(TARGETS[RUN_LEN - 1] * Math.pow(1.45, i - RUN_LEN + 1) / 50) * 50;
+}
+
+function newRun(){
+  G = {
+    v: 1, phase: 'intro', stage: 0, endless: false, total: 0, coins: 0,
+    relics: [], tools: [], board: Array(N * N).fill(null), tray: [null, null, null],
+    budget: 0, score: 0, target: 0, streak: 0, miss: 0, shuffles: 0, boss: null,
+    bossPool: shuffle(Object.keys(BOSSES)), earned: 0, shop: null, payout: null, overReason: '',
+    stats: { lines: 0, best: 0, placed: 0, maxStreak: 0 }
+  };
+  setupStage();
+}
+
+function setupStage(){
+  const i = G.stage;
+  G.boss = isBoss(i) ? G.bossPool[Math.floor(i / 3) % G.bossPool.length] : null;
+  G.board = Array(N * N).fill(null);
+  if (G.boss === 'risse'){
+    const rowC = Array(N).fill(0), colC = Array(N).fill(0);
+    let placed = 0, guard = 0;
+    while (placed < 8 && guard++ < 500){
+      const k = rnd(N * N), r = Math.floor(k / N), c = k % N;
+      if (G.board[k] || rowC[r] >= 2 || colC[c] >= 2) continue;
+      G.board[k] = { stone: true }; rowC[r]++; colC[c]++; placed++;
+    }
+  }
+  G.budget = BASE_BUDGET + (has('korb') ? 4 : 0) - (G.boss === 'kurz' ? 6 : 0);
+  G.score = 0; G.target = targetFor(i); G.streak = 0; G.miss = 0; G.earned = 0;
+  G.shuffles = G.boss === 'trocken' ? 0 : 1 + (has('ofen') ? 1 : 0);
+  G.tray = [null, null, null];
+  G.phase = 'intro';
+}
+
+function beginStage(){ G.phase = 'play'; drawTray(); }
+
+function makePiece(){
+  const fill = G.board.filter(Boolean).length / (N * N);
+  const pool = G.boss === 'schwer' ? SHAPES.filter(s => s.n >= 4) : SHAPES;
+  const s = wpick(pool, x => x.wt * (fill > 0.55 && x.n <= 3 ? 1.8 : 1));
+  const p = { cells: s.cells.map(x => x.slice()), n: s.n, h: s.h, w: s.w, fam: s.fam, g: rnd(5), sp: null };
+  const pg = 0.07 * (has('goldfuge') ? 2 : 1), ps = 0.045 * (has('sternstaub') ? 1.8 : 1);
+  const r = Math.random();
+  if (r < pg) p.sp = { i: rnd(s.n), t: 'gold' };
+  else if (r < pg + ps) p.sp = { i: rnd(s.n), t: 'star' };
+  return p;
+}
+
+function fits(board, p, r, c){
+  for (const [dr, dc] of p.cells){
+    const rr = r + dr, cc = c + dc;
+    if (rr < 0 || cc < 0 || rr >= N || cc >= N || board[rr * N + cc]) return false;
+  }
+  return true;
+}
+function anyFit(board, p){
+  for (let r = 0; r <= N - p.h; r++) for (let c = 0; c <= N - p.w; c++) if (fits(board, p, r, c)) return true;
+  return false;
+}
+function freshTray(count){
+  let first = null;
+  for (let a = 0; a < 30; a++){
+    const t = [0, 1, 2].map(i => i < count ? makePiece() : null);
+    if (!first) first = t;
+    if (t.some(p => p && anyFit(G.board, p))) return t;
+  }
+  return first;
+}
+function drawTray(){
+  const k = Math.min(3, G.budget);
+  if (k <= 0){ G.tray = [null, null, null]; return false; }
+  G.tray = freshTray(k);
+  G.budget -= k;
+  return true;
+}
+function rotatePiece(p){
+  let cells = p.cells.map(([r, c]) => [c, -r]);
+  const mr = Math.min(...cells.map(x => x[0])), mc = Math.min(...cells.map(x => x[1]));
+  cells = cells.map(([r, c]) => [r - mr, c - mc]);
+  return { ...p, cells, h: p.w, w: p.h };
+}
+
+function fullLines(b){
+  const rows = [], cols = [];
+  for (let r = 0; r < N; r++){ let f = true; for (let c = 0; c < N; c++) if (!b[r * N + c]){ f = false; break; } if (f) rows.push(r); }
+  if (!G || G.boss !== 'reihen'){
+    for (let c = 0; c < N; c++){ let f = true; for (let r = 0; r < N; r++) if (!b[r * N + c]){ f = false; break; } if (f) cols.push(c); }
+  }
+  return { rows, cols };
+}
+
+function computeClear(p){
+  const B = G.board;
+  const { rows, cols } = fullLines(B);
+  if (!rows.length && !cols.length){
+    G.miss++;
+    if (G.miss >= (has('netz') ? 2 : 1)) G.streak = 0;
+    return null;
+  }
+  const set = new Set();
+  rows.forEach(r => { for (let c = 0; c < N; c++) set.add(r * N + c); });
+  cols.forEach(c => { for (let r = 0; r < N; r++) set.add(r * N + c); });
+  const cells = [...set];
+  const lines = rows.length + cols.length;
+  let tiles = 0, golds = 0, stars = 0;
+  for (const i of cells){ const t = B[i]; if (t.stone) continue; tiles++; if (t.sp === 'gold') golds++; else if (t.sp === 'star') stars++; }
+  const lineCells = [
+    ...rows.map(r => Array.from({ length: N }, (_, c) => r * N + c)),
+    ...cols.map(c => Array.from({ length: N }, (_, r) => r * N + c))
+  ];
+  const mono = lineCells.filter(L => L.every(i => !B[i].stone && B[i].g === B[L[0]].g)).length;
+  const filledAfter = B.filter(Boolean).length - cells.length;
+  const ctx = {
+    rows, cols, lines, cells, piece: p, mono, empty: filledAfter === 0,
+    basis: 10 * tiles, faktor: lines, mult: 1, coins: 0, notes: [], fired: [],
+    has(...idx){ return idx.some(i => set.has(i)); },
+    bump(id, { b = 0, f = 0, m = 1 }){
+      this.basis += b; this.faktor += f; this.mult *= m; this.fired.push(id);
+      this.notes.push({ t: RELICS[id].n, v: [b ? `+${b} Basis` : '', f ? `+${f} Faktor` : '', m !== 1 ? `Punkte ×${m}` : ''].filter(Boolean).join(', ') });
+    }
+  };
+  ctx.notes.push({ t: lines === 1 ? '1 Linie' : `${lines} Linien`, v: `${10 * tiles} Basis, ${lines} Faktor` });
+  const streakF = G.streak * (has('atem') ? 2 : 1);
+  if (streakF){
+    ctx.faktor += streakF;
+    ctx.notes.push({ t: `Serie ${G.streak}`, v: `+${streakF} Faktor` });
+    if (has('atem')) ctx.fired.push('atem');
+  }
+  if (stars){ const f = stars * (has('sternstaub') ? 4 : 2); ctx.faktor += f; ctx.notes.push({ t: 'Sternkachel', v: `+${f} Faktor` }); }
+  if (golds){ ctx.coins += golds * (has('goldfuge') ? 2 : 1); ctx.notes.push({ t: 'Goldkachel', v: `+${ctx.coins} ${ctx.coins > 1 ? 'Münzen' : 'Münze'}` }); }
+  for (const rel of G.relics){ const R = RELICS[rel.id]; if (R && R.clear) R.clear(ctx, G, rel); }
+  if (G.boss === 'halb'){ ctx.basis = Math.floor(ctx.basis / 2); ctx.notes.push({ t: 'Billiger Ton', v: 'Basis halbiert' }); }
+  ctx.points = Math.round(ctx.basis * ctx.faktor * ctx.mult);
+  G.streak++; G.miss = 0;
+  G.stats.maxStreak = Math.max(G.stats.maxStreak, G.streak);
+  return ctx;
+}
+
+function statusOf(){
+  if (G.score >= G.target) return 'done';
+  let drew = false;
+  if (G.tray.every(x => !x)){
+    if (G.budget > 0){ drawTray(); drew = true; }
+    else return 'out';
+  }
+  if (!G.tray.some(p => p && anyFit(G.board, p))) return drew ? 'blocked-new' : 'blocked';
+  return drew ? 'drew' : 'ok';
+}
+
+function applyPlacement(slot, r, c){
+  const p = G.tray[slot];
+  const placed = [];
+  p.cells.forEach(([dr, dc], k) => {
+    const i = (r + dr) * N + c + dc;
+    G.board[i] = { g: p.g, sp: p.sp && p.sp.i === k ? p.sp.t : null };
+    placed.push(i);
+  });
+  G.tray[slot] = null;
+  G.stats.placed++;
+  const before = G.board.slice();
+  const ctx = computeClear(p);
+  if (ctx){
+    ctx.cells.forEach(i => { G.board[i] = null; });
+    G.score += ctx.points; G.total += ctx.points;
+    G.coins += ctx.coins; G.earned += ctx.coins;
+    G.stats.lines += ctx.lines; G.stats.best = Math.max(G.stats.best, ctx.points);
+  }
+  const status = statusOf();
+  return { placed, before, ctx, status };
+}
+
+function canRescue(){
+  if (G.shuffles > 0) return true;
+  if (G.boss === 'trocken') return false;
+  return G.tools.some(id => id === 'hammer' || id === 'abriss' || id === 'rest' ||
+    (id === 'drehen' && G.tray.some(p => { if (!p) return false; let q = p; for (let k = 0; k < 3; k++){ q = rotatePiece(q); if (anyFit(G.board, q)) return true; } return false; })));
+}
+
+function finishStage(){
+  const left = piecesLeft();
+  const pay = [];
+  pay.push(['Lohn für den Auftrag', 3 + Math.floor(G.stage / 3)]);
+  if (G.boss) pay.push(['Zuschlag Meisterstück', 3]);
+  const lb = Math.min(5, Math.floor(left / 2));
+  if (lb) pay.push([`${left} Teile übrig`, lb]);
+  if (has('schwein')){ const s = Math.min(5, Math.floor(G.coins / 4)); if (s) pay.push(['Sparschwein', s]); }
+  const sum = pay.reduce((a, x) => a + x[1], 0);
+  G.coins += sum;
+  G.payout = { pay, earned: G.earned, sum };
+  G.tray = [null, null, null];
+  G.phase = (G.stage === RUN_LEN - 1 && !G.endless) ? 'won' : 'cleared';
+  recordBest(G.phase === 'won' ? RUN_LEN : G.stage + 1);
+}
+
+function recordBest(stage){
+  const best = store.get(BEST_KEY, null);
+  if (!best || stage > best.stage || (stage === best.stage && G.total > best.total)) store.set(BEST_KEY, { stage, total: G.total });
+}
+
+function endRun(reason){
+  G.phase = 'over';
+  G.overReason = reason;
+  recordBest(G.stage + 1);
+  store.del(SAVE_KEY);
+}
+
+/* Laden */
+function rollRelics(k){
+  const owned = new Set(G.relics.map(r => r.id));
+  return shuffle(Object.keys(RELICS).filter(id => !owned.has(id))).slice(0, k).map(id => ({ id, sold: false }));
+}
+function rollTools(k){ return shuffle(Object.keys(TOOLS)).slice(0, k).map(id => ({ id, sold: false })); }
+function openShop(){ G.shop = { offers: rollRelics(3), tools: rollTools(2), reroll: 2 }; G.phase = 'shop'; }
+
+function save(){
+  if (!G) return;
+  if (G.phase === 'over') store.del(SAVE_KEY); else store.set(SAVE_KEY, G);
+}
+
+/* ================= Ton ================= */
+const sfx = (() => {
+  let ac = null, on = store.get(SOUND_KEY, true);
+  function ctx(){
+    if (!on) return null;
+    try { ac = ac || new (window.AudioContext || window.webkitAudioContext)(); if (ac.state === 'suspended') ac.resume(); } catch (e) { return null; }
+    return ac;
+  }
+  function tone(f, t0, dur, type, vol){
+    const a = ctx(); if (!a) return;
+    try {
+      const o = a.createOscillator(), g = a.createGain(), t = a.currentTime + t0;
+      o.type = type; o.frequency.value = f;
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.linearRampToValueAtTime(vol, t + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(g).connect(a.destination); o.start(t); o.stop(t + dur + 0.03);
+    } catch (e) {}
+  }
+  return {
+    place(){ tone(300, 0, 0.07, 'triangle', 0.07); },
+    clear(k){ const f = [523, 659, 784, 1047, 1319, 1568]; for (let i = 0; i < Math.min(k + 1, 6); i++) tone(f[i], i * 0.055, 0.2, 'sine', 0.07); },
+    coin(){ tone(1568, 0, 0.08, 'square', 0.025); tone(2093, 0.06, 0.12, 'square', 0.025); },
+    bad(){ tone(180, 0, 0.25, 'sawtooth', 0.04); },
+    toggle(){ on = !on; store.set(SOUND_KEY, on); return on; },
+    get on(){ return on; }
+  };
+})();
+function vibrate(p){ try { navigator.vibrate && navigator.vibrate(p); } catch (e) {} }
+
+/* ================= Oberfläche ================= */
+const U = { screen: 'title', menu: false, help: false, sel: null, cur: [3, 3], tool: null, info: null, warn: false, busy: false, drag: null, preview: null, confirm: null, calcT: 0, trayIn: false, kbd: false };
+const el = {
+  board: $('#board'), wrap: $('#boardWrap'), tray: $('#tray'), relics: $('#relics'), info: $('#info'),
+  ov: $('#ov'), sheet: $('#sheet'), ghost: $('#ghost'), calc: $('#calc'),
+  stageBtn: $('#hStageBtn'), stageLbl: $('#hStageLbl'), stage: $('#hStage'), score: $('#hScore'), target: $('#hTarget'),
+  barWrap: $('#hBarWrap'), bar: $('#hBar'), left: $('#hLeft'), streak: $('#hStreak'), coins: $('#hCoins'), coinsN: $('#hCoinsN'),
+  shuffle: $('#bShuffle'), shuffleN: $('#bShuffleN'), tools: $('#tools'), menu: $('#bMenu')
+};
+const cellsEl = [];
+for (let i = 0; i < N * N; i++){
+  const d = document.createElement('div');
+  d.className = 'c'; d.dataset.i = i; d.setAttribute('role', 'gridcell');
+  el.board.appendChild(d); cellsEl.push(d);
+}
+
+function layout(){
+  const s = Math.floor(Math.min(el.wrap.clientWidth, el.wrap.clientHeight, 460));
+  if (s > 0) document.documentElement.style.setProperty('--bs', s + 'px');
+}
+
+function tileClass(t){
+  if (!t) return '';
+  if (t.stone) return ' t stone';
+  return ' t g' + t.g + (t.sp ? ' s-' + t.sp : '');
+}
+const pieceTile = (p, k) => ({ g: p.g, sp: p.sp && p.sp.i === k ? p.sp.t : null });
+
+function renderBoard(board){
+  if (!G) return;
+  board = board || G.board;
+  const pv = U.preview;
+  const aim = U.tool != null && TOOLS[G.tools[U.tool]] && TOOLS[G.tools[U.tool]].target === 'cell';
+  for (let i = 0; i < N * N; i++){
+    let cls = 'c' + tileClass(board[i]);
+    if (pv && pv.map.has(i)){
+      if (pv.ok) cls = 'c pv' + tileClass(pv.map.get(i));
+      else cls += ' no';
+    }
+    if (pv && pv.hl.has(i)) cls += ' hl';
+    if (aim) cls += ' aim';
+    if (cellsEl[i].className !== cls) cellsEl[i].className = cls;
+  }
+}
+
+function makePreview(p, r, c){
+  const ok = fits(G.board, p, r, c);
+  const map = new Map();
+  p.cells.forEach(([dr, dc], k) => {
+    const rr = r + dr, cc = c + dc;
+    if (rr >= 0 && cc >= 0 && rr < N && cc < N) map.set(rr * N + cc, pieceTile(p, k));
+  });
+  const hl = new Set();
+  if (ok){
+    const b = G.board.slice();
+    map.forEach((t, i) => { b[i] = t; });
+    const { rows, cols } = fullLines(b);
+    rows.forEach(rr => { for (let x = 0; x < N; x++) hl.add(rr * N + x); });
+    cols.forEach(cc => { for (let x = 0; x < N; x++) hl.add(x * N + cc); });
+  }
+  return { map, hl, ok, r, c, key: `${r},${c},${ok}` };
+}
+
+function renderHud(){
+  const bossNow = !!G.boss;
+  el.stageBtn.classList.toggle('boss', bossNow);
+  el.stageLbl.textContent = bossNow ? 'Meisterstück' : (inEndless() ? 'Endlos' : 'Auftrag');
+  el.stage.textContent = inEndless() ? `${G.stage + 1}` : `${G.stage + 1}/${RUN_LEN}`;
+  el.score.textContent = fmt(G.score);
+  el.target.textContent = fmt(G.target);
+  el.bar.style.width = Math.min(100, G.score / Math.max(1, G.target) * 100) + '%';
+  el.barWrap.classList.toggle('done', G.score >= G.target);
+  el.left.textContent = piecesLeft();
+  el.streak.textContent = G.streak;
+  el.coinsN.textContent = G.coins;
+  el.shuffleN.textContent = G.shuffles;
+  el.shuffle.disabled = G.shuffles <= 0 || G.phase !== 'play';
+}
+
+function renderRelics(){
+  let h = '';
+  for (let i = 0; i < MAX_REL; i++){
+    const rel = G.relics[i];
+    if (rel){
+      const R = RELICS[rel.id];
+      h += `<button class="rel has" type="button" data-rel="${i}" data-id="${rel.id}" aria-label="${R.n}">${relTile(rel.id)}${rel.id === 'lehrling' && rel.n ? `<span class="cnt">+${rel.n}</span>` : ''}</button>`;
+    } else {
+      h += `<button class="rel" type="button" data-rel="${i}" aria-label="Freier Platz für ein Werkzeug">frei</button>`;
+    }
+  }
+  el.relics.innerHTML = h;
+}
+
+function renderTools(){
+  let h = '';
+  const dry = G.boss === 'trocken';
+  for (let i = 0; i < MAX_TOOLS; i++){
+    const id = G.tools[i];
+    if (id) h += `<button class="btn tool${U.tool === i ? ' armed' : ''}" type="button" data-tool="${i}" ${dry || G.phase !== 'play' ? 'disabled' : ''} aria-label="${TOOLS[id].n}: ${TOOLS[id].d}">${TOOLS[id].k}</button>`;
+    else h += `<button class="btn tool empty" type="button" data-tool="${i}" aria-label="Freier Platz für einen Kniff">Kniff</button>`;
+  }
+  el.tools.innerHTML = h;
+}
+
+function pieceHTML(p, tc){
+  const set = new Map(p.cells.map(([r, c], k) => [r * 10 + c, k]));
+  let h = `<div class="pc" style="--w:${p.w};--tc:${tc}px">`;
+  for (let r = 0; r < p.h; r++) for (let c = 0; c < p.w; c++){
+    const k = set.get(r * 10 + c);
+    h += k == null ? '<i></i>' : `<i class="${tileClass(pieceTile(p, k)).trim()}"></i>`;
+  }
+  return h + '</div>';
+}
+
+function renderTray(){
+  const slotW = (el.tray.clientWidth - 16) / 3 || 100, slotH = el.tray.clientHeight || 98;
+  const pieceAim = U.tool != null && TOOLS[G.tools[U.tool]] && TOOLS[G.tools[U.tool]].target === 'piece';
+  let h = '';
+  G.tray.forEach((p, i) => {
+    if (!p){ h += `<button class="slot" type="button" data-slot="${i}" disabled aria-label="Leerer Platz"></button>`; return; }
+    const tc = Math.max(9, Math.min(20, Math.floor((slotH - 14) / p.h) - 2, Math.floor((slotW - 14) / p.w) - 2));
+    const cls = ['slot'];
+    if (U.sel === i) cls.push('sel');
+    if (U.drag && U.drag.moved && U.drag.slot === i) cls.push('lift');
+    if (pieceAim) cls.push('aim');
+    if (G.phase === 'play' && !anyFit(G.board, p)) cls.push('nofit');
+    if (U.trayIn) cls.push('in');
+    h += `<button class="${cls.join(' ')}" type="button" data-slot="${i}" aria-label="Teil ${i + 1} aus ${p.n} Kacheln">${pieceHTML(p, tc)}</button>`;
+  });
+  el.tray.innerHTML = h;
+  U.trayIn = false;
+}
+
+function defaultInfo(){
+  if (U.tool != null && G.tools[U.tool]){ const T = TOOLS[G.tools[U.tool]]; return `<b>${T.n}:</b> ${T.hint} Nochmal auf den Kniff tippen bricht ab.`; }
+  if (U.sel != null) return 'Tippe aufs Raster, um das Teil dorthin zu schieben. Ein zweiter Tipp auf die Vorschau legt es ab.';
+  if (G.stats.placed === 0) return 'Ziehe ein Teil aufs Raster. Volle Reihen und Spalten werden abgeräumt und bringen Punkte.';
+  if (G.boss) return `<b>${BOSSES[G.boss].n}:</b> ${BOSSES[G.boss].d}`;
+  return 'Punkte = Basis × Faktor. Mehrere Linien auf einmal und Serien erhöhen den Faktor.';
+}
+function renderInfo(){
+  el.info.innerHTML = U.info || defaultInfo();
+  el.info.classList.toggle('warn', !!U.info && U.warn);
+}
+function setInfo(html, warn){ U.info = html; U.warn = !!warn; renderInfo(); }
+
+function renderUI(){
+  if (!G){ renderOverlay(); return; }
+  renderHud(); renderRelics(); renderTools(); renderTray(); renderInfo(); renderOverlay();
+}
+function renderAll(){ if (G) renderBoard(); renderUI(); }
+
+/* ================= Fenster ================= */
+const nextBossStage = () => { let i = G.stage; while (!isBoss(i)) i++; return i + 1; };
+
+function sheetTitle(){
+  const saved = G && G.phase !== 'over' ? G : null;
+  const best = store.get(BEST_KEY, null);
+  const confirmNew = U.confirm === 'new';
+  return `<div class="title">
+    <div class="strip" id="strip" aria-hidden="true">${Array.from({ length: 8 }, (_, i) => `<i class="t g${(i * 3) % 5}"></i>`).join('')}</div>
+    <h1 class="logo">Kachelwerk</h1>
+    <p class="tag">Block-Puzzle trifft Roguelike. Lege Kacheln, räume Reihen und Spalten ab, sammle Werkzeuge und arbeite dich durch neun Aufträge zum Meisterbrief.</p>
+    <div class="row">
+      ${saved ? `<button class="btn pri big" type="button" data-act="continue">Weiterspielen <small>Auftrag ${saved.stage + 1}</small></button>` : ''}
+      <button class="btn ${saved ? '' : 'pri'} big" type="button" data-act="new">${confirmNew ? 'Wirklich neu? Tippe nochmal' : 'Neuer Lauf'}</button>
+      <button class="btn big" type="button" data-act="help">So geht's</button>
+    </div>
+    ${confirmNew ? '<p class="note">Der angefangene Lauf geht dabei verloren.</p>' : ''}
+    ${best ? `<p class="best">Bester Lauf: Auftrag ${best.stage} von ${RUN_LEN} erreicht · ${fmt(best.total)} Punkte</p>` : ''}
+    <section class="price" aria-label="Preismodell">
+      <div class="price-top"><span class="kicker">Preismodell</span><span class="amt">4,99 € <small>einmalig</small></span></div>
+      <p>Einmal kaufen, alles spielen. Die ersten drei Aufträge sind als Demo gratis.</p>
+      <div class="chips"><span class="chip">Keine Werbung</span><span class="chip">Keine In-App-Käufe</span><span class="chip">Offline spielbar</span><span class="chip">Läuft auf jedem Handy</span></div>
+    </section>
+    <details class="why">
+      <summary>Warum einmal zahlen statt Ingame-Shop?</summary>
+      <ul class="list">
+        <li><b>Preis im Sweet Spot.</b> Die meistgekauften Kaufspiele liegen bei 5–15 €: Balatro (9,99 €, 1,9 Mio.+ Downloads), Slay the Spire (9,99 €, 1,8 Mio.+), Stardew Valley (4,99 €). Ab 25–50 € wird der Käuferkreis klein. Die 265–999-$-Apps sind Scherzartikel ohne Spieler.</li>
+        <li><b>Gratis anspielen wie bei Alien: Isolation.</b> Eine Demo bringt die Reichweite eines kostenlosen Downloads, ohne Werbung und ohne Shop.</li>
+        <li><b>Einfach wie die Download-Könige.</b> Block Blast! und Subway Surfers gewinnen mit einfacher Bedienung, Offline-Spiel und geringen Hardware-Ansprüchen. Kachelwerk braucht einen Finger, kein Netz und keine Grafikkarte.</li>
+        <li><b>Tief wie die Bestbewerteten.</b> Balatro (4,7 ★) und Slay the Spire leben vom Wiederspielwert. Hier kombinieren sich 20 Werkzeuge zu immer neuen Läufen.</li>
+        <li><b>Kein Live-Ops-Shop.</b> Die Umsatz-Könige (Honor of Kings, MONOPOLY GO!, Whiteout Survival) verdienen mit Boostern, Würfeln und Beschleunigern an wenigen Vielzahlern. Das braucht ein großes Team für wöchentliche Events und bringt versteckte Kosten für Spieler.</li>
+      </ul>
+      <p class="small">Der Laden im Spiel nimmt nur Münzen, die du im Spiel verdienst. Dieser Prototyp ist komplett freigeschaltet.</p>
+    </details>
+  </div>`;
+}
+
+function sheetHelp(){
+  return `<div class="head"><span class="kicker">Anleitung</span><h2>So geht's</h2></div>
+  <ol class="list">
+    <li><b>Teile legen.</b> Ziehe die Teile aus der Ablage aufs Raster. Sind alle drei gelegt, kommen drei neue. Drehen geht nur mit dem Kniff „Drehscheibe“.</li>
+    <li><b>Abräumen.</b> Volle Reihen und Spalten verschwinden. Punkte = <b>Basis × Faktor</b>. Basis: 10 je Kachel. Faktor: Zahl der Linien plus deine Serie.</li>
+    <li><b>Serie.</b> Räumst du in mehreren Zügen hintereinander ab, steigt der Faktor jedes Mal um 1.</li>
+    <li><b>Aufträge.</b> Jeder Auftrag hat ein Punkteziel und einen Korb mit begrenzt vielen Teilen. Ziel erreicht: Münzen. Korb leer oder kein Platz mehr: Der Lauf ist vorbei.</li>
+    <li><b>Besondere Kacheln.</b> Goldkachel <span class="coin sm"></span>: +1 Münze. Sternkachel: +2 Faktor.</li>
+    <li><b>Laden.</b> Nach jedem Auftrag kaufst du Werkzeuge (bis zu 5, wirken dauerhaft) und Kniffe (bis zu 2, einmal einsetzbar). Bezahlt wird nur mit erspielten Münzen.</li>
+    <li><b>Meisterstück.</b> Jeder dritte Auftrag hat eine Sonderregel. Nach dem neunten gibt es den Meisterbrief und danach den Endlos-Modus.</li>
+    <li><b>Mischen.</b> Tauscht die Teile in der Ablage aus, ohne Teile aus dem Korb zu verbrauchen. Einmal pro Auftrag.</li>
+  </ol>
+  <p class="keys">Tastatur: <kbd>1</kbd>–<kbd>3</kbd> Teil wählen, Pfeiltasten schieben, <kbd>Enter</kbd> legen, <kbd>M</kbd> mischen, <kbd>Esc</kbd> abbrechen.</p>
+  <button class="btn pri big wide" type="button" data-act="back">Verstanden</button>`;
+}
+
+function sheetMenu(){
+  return `<div class="head"><span class="kicker">Pause</span><h2>Auftrag ${G.stage + 1}</h2></div>
+  <div class="stats three">
+    <div class="stat"><b>${fmt(G.total)}</b><span>Punkte im Lauf</span></div>
+    <div class="stat"><b>${G.stats.lines}</b><span>Linien</span></div>
+    <div class="stat"><b>${G.stats.maxStreak}</b><span>Längste Serie</span></div>
+  </div>
+  <button class="btn pri big wide" type="button" data-act="resume">Weiterspielen</button>
+  <div class="row">
+    <button class="btn" type="button" data-act="help">So geht's</button>
+    <button class="btn" type="button" data-act="sound">Ton: ${sfx.on ? 'an' : 'aus'}</button>
+    <button class="btn" type="button" data-act="title">Zum Titel</button>
+  </div>
+  <button class="btn wide" type="button" data-act="giveup">${U.confirm === 'giveup' ? 'Wirklich aufgeben? Tippe nochmal' : 'Lauf aufgeben'}</button>`;
+}
+
+function sheetIntro(){
+  const b = G.boss && BOSSES[G.boss];
+  return `<div class="head"><span class="kicker${b ? ' boss' : ''}">${b ? 'Meisterstück' : (inEndless() ? 'Endlos-Modus' : 'Neuer Auftrag')}</span>
+    <h2>Auftrag ${G.stage + 1}${inEndless() ? '' : ` von ${RUN_LEN}`}</h2></div>
+  <div class="stats three">
+    <div class="stat"><b>${fmt(G.target)}</b><span>Punkte als Ziel</span></div>
+    <div class="stat"><b>${G.budget}</b><span>Teile im Korb</span></div>
+    <div class="stat"><b>${G.shuffles}×</b><span>Mischen</span></div>
+  </div>
+  ${b ? `<div class="rule"><i class="t stone" aria-hidden="true"></i><div><h3>${b.n}</h3><p>${b.d}</p></div></div>`
+      : `<p>Nächstes Meisterstück mit Sonderregel: Auftrag ${nextBossStage()}.</p>`}
+  ${G.stage === 0 ? '<p>Tipp: Lass Platz für große Teile und räume möglichst mehrere Linien auf einmal ab.</p>' : ''}
+  <button class="btn pri big wide" type="button" data-act="start">Los geht's</button>`;
+}
+
+function payList(){
+  const P = G.payout;
+  return `<ul class="pay">
+    ${P.earned ? `<li><span>Goldkacheln im Auftrag</span><span>+${P.earned} (schon im Beutel)</span></li>` : ''}
+    ${P.pay.map(([t, v]) => `<li><span>${t}</span><span>+${v}</span></li>`).join('')}
+    <li class="sum"><span>Im Beutel</span><span><span class="coin sm"></span>${G.coins}</span></li>
+  </ul>`;
+}
+
+function sheetCleared(){
+  return `<div class="head"><span class="kicker">Auftrag ${G.stage + 1} erledigt</span><h2>${fmt(G.score)} Punkte</h2>
+    <p>Ziel war ${fmt(G.target)}. Dafür gibt es Münzen für den Laden.</p></div>
+  ${payList()}
+  ${G.stage === 2 && !G.endless ? '<p class="note">Hier endet später die Gratis-Demo. Die Vollversion kostet einmalig 4,99 €, ohne Werbung und ohne In-App-Käufe.</p>' : ''}
+  <button class="btn pri big wide" type="button" data-act="shop">Zum Werkstatt-Laden</button>`;
+}
+
+function statsBlock(){
+  return `<div class="stats">
+    <div class="stat"><b>${fmt(G.total)}</b><span>Punkte im Lauf</span></div>
+    <div class="stat"><b>${fmt(G.stats.best)}</b><span>Bestes Abräumen</span></div>
+    <div class="stat"><b>${G.stats.lines}</b><span>Linien abgeräumt</span></div>
+    <div class="stat"><b>${G.stats.maxStreak}</b><span>Längste Serie</span></div>
+  </div>
+  ${G.relics.length ? `<p>Werkzeuge: ${G.relics.map(r => RELICS[r.id].n).join(', ')}.</p>` : ''}`;
+}
+
+function sheetWon(){
+  return `<div class="head"><span class="kicker">Alle ${RUN_LEN} Aufträge erfüllt</span><h2>Meisterbrief!</h2>
+    <p>Das letzte Meisterstück ist geschafft. Du kannst den Lauf im Endlos-Modus fortsetzen, die Ziele wachsen dann mit jedem Auftrag.</p></div>
+  ${statsBlock()}
+  ${payList()}
+  <button class="btn pri big wide" type="button" data-act="endless">Endlos weiterspielen</button>
+  <button class="btn wide" type="button" data-act="restart">Neuer Lauf</button>`;
+}
+
+function sheetOver(){
+  const best = store.get(BEST_KEY, null);
+  return `<div class="head"><span class="kicker boss">Lauf beendet</span><h2>Auftrag ${G.stage + 1}${inEndless() ? '' : ` von ${RUN_LEN}`}</h2>
+    <p>${G.overReason} ${G.stage < RUN_LEN ? `Es fehlten ${fmt(Math.max(0, G.target - G.score))} Punkte.` : ''}</p></div>
+  ${statsBlock()}
+  ${best ? `<p class="best">Bester Lauf: Auftrag ${best.stage} · ${fmt(best.total)} Punkte</p>` : ''}
+  <button class="btn pri big wide" type="button" data-act="restart">Neuer Lauf</button>
+  <button class="btn wide" type="button" data-act="title">Zum Titel</button>`;
+}
+
+function sheetShop(){
+  const S = G.shop;
+  const full = G.relics.length >= MAX_REL, toolsFull = G.tools.length >= MAX_TOOLS;
+  const relCards = S.offers.map((o, k) => {
+    const R = RELICS[o.id];
+    const can = !o.sold && G.coins >= R.p && !full;
+    return `<div class="card${o.sold ? ' sold' : ''}"><span class="ic">${relTile(o.id)}</span><div><h3>${R.n}</h3><p>${R.d}</p></div>
+      <button class="btn${can ? ' pri' : ''}" type="button" data-act="buy" data-arg="${k}" ${can ? '' : 'disabled'} aria-label="${R.n} kaufen für ${R.p} Münzen">${o.sold ? 'Gekauft' : `<span class="coin sm"></span>${R.p}`}</button></div>`;
+  }).join('') || '<p>Du hast schon alle Werkzeuge.</p>';
+  const toolCards = S.tools.map((o, k) => {
+    const T = TOOLS[o.id];
+    const can = !o.sold && G.coins >= T.p && !toolsFull;
+    return `<div class="card${o.sold ? ' sold' : ''}"><span class="ic">${toolTile(o.id)}</span><div><h3>${T.n}</h3><p>${T.d}</p></div>
+      <button class="btn${can ? ' pri' : ''}" type="button" data-act="buyTool" data-arg="${k}" ${can ? '' : 'disabled'} aria-label="${T.n} kaufen für ${T.p} Münzen">${o.sold ? 'Gekauft' : `<span class="coin sm"></span>${T.p}`}</button></div>`;
+  }).join('');
+  const owned = G.relics.map((r, k) => {
+    const R = RELICS[r.id];
+    return `<div class="card"><span class="ic">${relTile(r.id)}</span><div><h3>${R.n}${r.id === 'lehrling' && r.n ? ` (+${r.n})` : ''}</h3><p>${R.d}</p></div>
+      <button class="btn" type="button" data-act="sell" data-arg="${k}" aria-label="${R.n} verkaufen für ${Math.floor(R.p / 2)} Münzen">+${Math.floor(R.p / 2)}</button></div>`;
+  }).join('');
+  return `<div class="head-row"><div class="head"><span class="kicker">Vor Auftrag ${G.stage + 2}</span><h2>Werkstatt-Laden</h2></div>
+    <div class="coins" aria-label="${G.coins} Münzen"><span class="coin"></span>${G.coins}</div></div>
+  <p>Bezahlt wird nur mit Münzen aus dem Spiel. Nächstes Ziel: ${fmt(targetFor(G.stage + 1))} Punkte${isBoss(G.stage + 1) ? ', ein Meisterstück' : ''}.</p>
+  <h4>Werkzeuge <small>${G.relics.length}/${MAX_REL} · wirken dauerhaft</small></h4>
+  ${full ? '<p class="note">Alle Plätze belegt. Verkaufe unten ein Werkzeug, um Platz zu machen.</p>' : ''}
+  ${relCards}
+  <h4>Kniffe <small>${G.tools.length}/${MAX_TOOLS} · einmal einsetzbar</small></h4>
+  ${toolCards}
+  <button class="btn wide" type="button" data-act="reroll" ${G.coins >= S.reroll ? '' : 'disabled'}>Werkzeuge neu bestücken · <span class="coin sm"></span>${S.reroll}</button>
+  ${owned ? `<h4>Deine Werkzeuge <small>Verkaufen bringt die Hälfte</small></h4>${owned}` : ''}
+  <button class="btn pri big wide" type="button" data-act="next">Weiter zu Auftrag ${G.stage + 2}</button>`;
+}
+
+let lastSheet = '';
+function renderOverlay(){
+  let html = null, full = false, kind = '';
+  if (U.help){ html = sheetHelp(); kind = 'help'; }
+  else if (U.screen === 'title'){ html = sheetTitle(); full = true; kind = 'title'; }
+  else if (U.menu && G){ html = sheetMenu(); kind = 'menu'; }
+  else if (G){
+    kind = G.phase;
+    if (G.phase === 'intro') html = sheetIntro();
+    else if (G.phase === 'cleared') html = sheetCleared();
+    else if (G.phase === 'shop') html = sheetShop();
+    else if (G.phase === 'won') html = sheetWon();
+    else if (G.phase === 'over') html = sheetOver();
+  }
+  if (!html){ el.ov.hidden = true; stopStrip(); lastSheet = ''; return; }
+  const changed = kind !== lastSheet;
+  el.ov.hidden = false;
+  el.ov.classList.toggle('full', full);
+  const keepScroll = el.sheet.scrollTop;
+  el.sheet.innerHTML = html;
+  if (changed){
+    el.sheet.scrollTop = 0;
+    el.sheet.style.animation = 'none'; void el.sheet.offsetWidth; el.sheet.style.animation = '';
+    const f = el.sheet.querySelector('.btn.pri') || el.sheet.querySelector('.btn');
+    if (f && U.kbd) try { f.focus({ preventScroll: true }); } catch (e) {}
+  } else el.sheet.scrollTop = keepScroll;
+  lastSheet = kind;
+  if (kind === 'title') startStrip(); else stopStrip();
+}
+
+/* Kachelreihe auf dem Titel */
+let stripT = 0;
+function startStrip(){
+  stopStrip();
+  if (reduce) return;
+  const tiles = [...document.querySelectorAll('#strip i')];
+  if (!tiles.length) return;
+  let k = 0;
+  tiles.forEach(t => t.classList.add('off'));
+  stripT = setInterval(() => {
+    if (!tiles[0].isConnected) return stopStrip();
+    if (k < 8){ tiles[k].classList.remove('off'); tiles[k].classList.add('pop'); }
+    else if (k === 9){ tiles.forEach(t => { t.classList.remove('pop'); t.classList.add('clr'); }); }
+    else if (k === 11){ tiles.forEach(t => { t.classList.remove('clr'); t.classList.add('off'); }); k = -1; }
+    k++;
+  }, 240);
+}
+function stopStrip(){ if (stripT){ clearInterval(stripT); stripT = 0; } }
+
+/* ================= Aktionen ================= */
+function act(a, arg){
+  const prevConfirm = U.confirm;
+  U.confirm = null;
+  switch (a){
+    case 'new':
+      if (G && G.phase !== 'over' && prevConfirm !== 'new'){ U.confirm = 'new'; break; }
+      newRun(); U.screen = null; break;
+    case 'continue': U.screen = null; break;
+    case 'help': U.help = true; break;
+    case 'back': U.help = false; break;
+    case 'start': beginStage(); U.trayIn = true; U.info = null; break;
+    case 'shop': openShop(); break;
+    case 'buy': {
+      const o = G.shop.offers[+arg]; const R = o && RELICS[o.id];
+      if (!R || o.sold || G.coins < R.p || G.relics.length >= MAX_REL) break;
+      G.coins -= R.p; G.relics.push({ id: o.id }); o.sold = true; sfx.coin(); break;
+    }
+    case 'buyTool': {
+      const o = G.shop.tools[+arg]; const T = o && TOOLS[o.id];
+      if (!T || o.sold || G.coins < T.p || G.tools.length >= MAX_TOOLS) break;
+      G.coins -= T.p; G.tools.push(o.id); o.sold = true; sfx.coin(); break;
+    }
+    case 'sell': {
+      const r = G.relics[+arg]; if (!r) break;
+      G.coins += Math.floor(RELICS[r.id].p / 2); G.relics.splice(+arg, 1); sfx.coin(); break;
+    }
+    case 'reroll':
+      if (G.coins < G.shop.reroll) break;
+      G.coins -= G.shop.reroll; G.shop.reroll++; G.shop.offers = rollRelics(3); break;
+    case 'next': G.stage++; G.shop = null; setupStage(); break;
+    case 'endless': G.endless = true; openShop(); break;
+    case 'resume': U.menu = false; break;
+    case 'sound': sfx.toggle(); break;
+    case 'title': U.menu = false; U.screen = 'title'; break;
+    case 'giveup':
+      if (prevConfirm !== 'giveup'){ U.confirm = 'giveup'; break; }
+      U.menu = false; endRun('Du hast den Lauf aufgegeben.'); break;
+    case 'restart': newRun(); U.screen = null; break;
+  }
+  save(); renderAll();
+}
+el.ov.addEventListener('click', e => {
+  const b = e.target.closest('[data-act]');
+  if (!b || b.disabled) return;
+  act(b.dataset.act, b.dataset.arg);
+});
+
+function canInteract(){ return !!G && G.phase === 'play' && !U.busy && !U.menu && !U.help && U.screen == null; }
+
+function handleStatus(st){
+  if (st === 'done'){
+    U.busy = true;
+    setTimeout(() => { U.busy = false; U.sel = null; U.tool = null; U.preview = null; U.info = null; finishStage(); save(); renderAll(); }, reduce ? 60 : 480);
+    return;
+  }
+  if (st === 'drew' || st === 'blocked-new'){ U.trayIn = true; renderTray(); }
+  if (st === 'out'){ fail('Der Korb ist leer, das Ziel aber nicht erreicht.'); return; }
+  if (st === 'blocked' || st === 'blocked-new'){
+    if (canRescue()){ setInfo('Kein Teil passt mehr. Mische die Ablage oder setze einen Kniff ein.', true); el.board.classList.remove('shake'); void el.board.offsetWidth; el.board.classList.add('shake'); }
+    else fail('Kein Teil passt mehr ins Raster.');
+  }
+}
+function fail(reason){
+  sfx.bad(); vibrate([40, 40, 40]);
+  setInfo(reason, true);
+  el.board.classList.remove('shake'); void el.board.offsetWidth; el.board.classList.add('shake');
+  U.busy = true;
+  setTimeout(() => { U.busy = false; endRun(reason); renderAll(); }, reduce ? 300 : 1100);
+}
+
+function showCalc(ctx){
+  const notes = ctx.notes.slice(1, 5).map(n => `<li><b>${n.t}</b> ${n.v}</li>`).join('');
+  el.calc.innerHTML = `<div class="eq"><b>${fmt(ctx.basis)}</b> Basis × <b>${fmt(ctx.faktor)}</b> Faktor${ctx.mult !== 1 ? ` × <b>${ctx.mult}</b>` : ''}</div>
+    <div class="pts">+${fmt(ctx.points)}</div>${notes ? `<ul>${notes}</ul>` : ''}`;
+  el.calc.classList.add('show');
+  clearTimeout(U.calcT);
+  U.calcT = setTimeout(() => el.calc.classList.remove('show'), 1700);
+}
+function pulseRelics(ids){
+  ids.forEach(id => {
+    const b = el.relics.querySelector(`[data-id="${id}"]`);
+    if (b){ b.classList.remove('fire'); void b.offsetWidth; b.classList.add('fire'); }
+  });
+}
+
+async function doPlace(slot, r, c){
+  const p = G.tray[slot];
+  if (!p || !fits(G.board, p, r, c)) return;
+  U.busy = true; U.sel = null; U.preview = null; U.info = null; U.warn = false;
+  const res = applyPlacement(slot, r, c);
+  sfx.place();
+  renderBoard(res.before);
+  res.placed.forEach(i => cellsEl[i].classList.add('pop'));
+  if (res.ctx){
+    const ctx = res.ctx;
+    renderHud(); renderInfo(); renderTray();
+    await wait(reduce ? 0 : 120);
+    const cr = res.placed.reduce((a, i) => a + Math.floor(i / N), 0) / res.placed.length;
+    const cc = res.placed.reduce((a, i) => a + i % N, 0) / res.placed.length;
+    let maxD = 0;
+    ctx.cells.forEach(i => {
+      const ms = Math.round(Math.hypot(Math.floor(i / N) - cr, i % N - cc) * 26);
+      maxD = Math.max(maxD, ms);
+      cellsEl[i].style.setProperty('--d', ms + 'ms');
+      cellsEl[i].classList.remove('pop');
+      cellsEl[i].classList.add('clr');
+    });
+    showCalc(ctx); pulseRelics(ctx.fired); renderRelics(); pulseRelics(ctx.fired);
+    sfx.clear(ctx.lines); vibrate(ctx.lines > 1 ? [14, 40, 14] : 14);
+    if (ctx.coins){ sfx.coin(); el.coins.classList.remove('bump'); void el.coins.offsetWidth; el.coins.classList.add('bump'); }
+    await wait(reduce ? 80 : 440 + maxD);
+    ctx.cells.forEach(i => cellsEl[i].style.removeProperty('--d'));
+    U.busy = false;
+    renderAll();
+  } else {
+    U.busy = false;
+    renderUI();
+  }
+  save();
+  handleStatus(res.status);
+}
+
+function doShuffle(){
+  if (!canInteract() || G.shuffles <= 0) return;
+  G.shuffles--;
+  G.tray = (() => {
+    const count = G.tray.filter(Boolean).length;
+    const t = freshTray(count);
+    const out = [null, null, null]; let k = 0;
+    G.tray.forEach((p, i) => { if (p) out[i] = t[k++]; });
+    return out;
+  })();
+  U.sel = null; U.preview = null; U.tool = null; U.info = null; U.trayIn = true;
+  renderAll(); save();
+  handleStatus(statusOf());
+}
+
+function armTool(k){
+  if (!canInteract() || G.boss === 'trocken' || !G.tools[k]) return;
+  U.tool = U.tool === k ? null : k;
+  U.sel = null; U.preview = null; U.info = null;
+  renderAll();
+}
+function consumeTool(){
+  G.tools.splice(U.tool, 1);
+  U.tool = null; U.info = null;
+  sfx.place();
+  renderAll(); save();
+  handleStatus(statusOf());
+}
+function useToolOnCell(i){
+  const id = G.tools[U.tool];
+  if (id === 'hammer'){
+    if (!G.board[i]){ setInfo('Da liegt keine Kachel. Tippe auf eine belegte Kachel.', true); return; }
+    G.board[i] = null;
+  } else if (id === 'abriss'){
+    const r = clamp(Math.floor(i / N) - 1, 0, N - 3), c = clamp(i % N - 1, 0, N - 3);
+    for (let dr = 0; dr < 3; dr++) for (let dc = 0; dc < 3; dc++) G.board[(r + dr) * N + c + dc] = null;
+  } else return;
+  consumeTool();
+}
+function useToolOnPiece(slot){
+  const id = G.tools[U.tool], p = G.tray[slot];
+  if (!p) return;
+  if (id === 'drehen') G.tray[slot] = rotatePiece(p);
+  else if (id === 'rest') G.tray[slot] = { cells: [[0, 0]], n: 1, h: 1, w: 1, fam: 'mono', g: p.g, sp: p.sp ? { i: 0, t: p.sp.t } : null };
+  else return;
+  consumeTool();
+}
+
+/* Auswahl per Tippen oder Tastatur */
+function clampAnchor(p, r, c){ return [clamp(r, 0, N - p.h), clamp(c, 0, N - p.w)]; }
+function selectSlot(i){
+  const p = G.tray[i];
+  if (!p) return;
+  if (U.sel === i){ U.sel = null; U.preview = null; renderAll(); return; }
+  U.sel = i;
+  let best = null, bd = 1e9;
+  for (let r = 0; r <= N - p.h; r++) for (let c = 0; c <= N - p.w; c++){
+    if (!fits(G.board, p, r, c)) continue;
+    const d = Math.hypot(r + p.h / 2 - 4, c + p.w / 2 - 4);
+    if (d < bd){ bd = d; best = [r, c]; }
+  }
+  U.cur = best || clampAnchor(p, 4 - Math.floor(p.h / 2), 4 - Math.floor(p.w / 2));
+  U.preview = makePreview(p, U.cur[0], U.cur[1]);
+  renderAll();
+}
+function moveCursor(dr, dc){
+  const p = G.tray[U.sel]; if (!p) return;
+  U.cur = clampAnchor(p, U.cur[0] + dr, U.cur[1] + dc);
+  U.preview = makePreview(p, U.cur[0], U.cur[1]);
+  renderBoard();
+}
+
+/* ================= Ziehen ================= */
+function boardMetrics(){
+  const a = cellsEl[0].getBoundingClientRect(), b = cellsEl[1].getBoundingClientRect();
+  return { ox: a.left, oy: a.top, cell: a.width, pitch: b.left - a.left };
+}
+function startGhost(d){
+  const p = G.tray[d.slot];
+  const m = boardMetrics();
+  d.m = m; d.p = p;
+  const gap = m.pitch - m.cell;
+  el.ghost.style.setProperty('--w', p.w);
+  el.ghost.style.setProperty('--gs', m.cell + 'px');
+  el.ghost.style.setProperty('--gg', gap + 'px');
+  const set = new Map(p.cells.map(([r, c], k) => [r * 10 + c, k]));
+  let h = '';
+  for (let r = 0; r < p.h; r++) for (let c = 0; c < p.w; c++){
+    const k = set.get(r * 10 + c);
+    h += k == null ? '<i></i>' : `<i class="${tileClass(pieceTile(p, k)).trim()}"></i>`;
+  }
+  el.ghost.innerHTML = h;
+  el.ghost.hidden = false;
+  d.gw = p.w * m.pitch - gap; d.gh = p.h * m.pitch - gap;
+  U.sel = null; U.preview = null;
+  renderTray();
+}
+function moveGhost(d, x, y){
+  const gx = x - d.gw / 2;
+  const gy = d.touch ? y - d.gh - Math.max(28, d.m.cell * 0.9) : y - d.gh / 2;
+  el.ghost.style.transform = `translate(${gx}px, ${gy}px)`;
+  const r = Math.round((gy - d.m.oy) / d.m.pitch), c = Math.round((gx - d.m.ox) / d.m.pitch);
+  let pv = null;
+  if (r >= -1 && c >= -1 && r <= N && c <= N && fits(G.board, d.p, r, c)) pv = makePreview(d.p, r, c);
+  const key = pv ? pv.key : '';
+  if (key !== (U.preview ? U.preview.key : '')){ U.preview = pv; renderBoard(); }
+}
+function endGhost(d, drop){
+  el.ghost.hidden = true;
+  const pv = U.preview;
+  U.preview = null;
+  if (drop && pv && pv.ok){ doPlace(d.slot, pv.r, pv.c); return; }
+  renderBoard(); renderTray();
+}
+
+el.tray.addEventListener('pointerdown', e => {
+  const s = e.target.closest('.slot');
+  if (!s || s.disabled || !canInteract()) return;
+  const slot = +s.dataset.slot;
+  if (!G.tray[slot]) return;
+  e.preventDefault();
+  U.drag = { slot, x0: e.clientX, y0: e.clientY, moved: false, pid: e.pointerId, touch: e.pointerType !== 'mouse', noDrag: U.tool != null };
+  try { s.setPointerCapture(e.pointerId); } catch (err) {}
+});
+window.addEventListener('pointermove', e => {
+  const d = U.drag;
+  if (!d || e.pointerId !== d.pid) return;
+  if (!d.moved){
+    if (d.noDrag || Math.hypot(e.clientX - d.x0, e.clientY - d.y0) < 7) return;
+    d.moved = true;
+    startGhost(d);
+  }
+  e.preventDefault();
+  moveGhost(d, e.clientX, e.clientY);
+}, { passive: false });
+window.addEventListener('pointerup', e => {
+  const d = U.drag;
+  if (!d || e.pointerId !== d.pid) return;
+  U.drag = null;
+  if (!d.moved){
+    if (U.tool != null){
+      const T = TOOLS[G.tools[U.tool]];
+      if (T && T.target === 'piece') useToolOnPiece(d.slot);
+      else { U.tool = null; renderAll(); }
+      return;
+    }
+    selectSlot(d.slot);
+    return;
+  }
+  endGhost(d, true);
+});
+window.addEventListener('pointercancel', e => {
+  const d = U.drag;
+  if (!d || e.pointerId !== d.pid) return;
+  U.drag = null;
+  if (d.moved) endGhost(d, false);
+});
+
+el.board.addEventListener('click', e => {
+  const cell = e.target.closest('.c');
+  if (!cell || !canInteract()) return;
+  const i = +cell.dataset.i, r = Math.floor(i / N), c = i % N;
+  if (U.tool != null){
+    const T = TOOLS[G.tools[U.tool]];
+    if (T && T.target === 'cell') useToolOnCell(i);
+    return;
+  }
+  if (U.sel == null) return;
+  const p = G.tray[U.sel];
+  if (!p) return;
+  if (U.preview && U.preview.ok && U.preview.map.has(i)){ doPlace(U.sel, U.preview.r, U.preview.c); return; }
+  U.cur = clampAnchor(p, r - Math.floor(p.h / 2), c - Math.floor(p.w / 2));
+  U.preview = makePreview(p, U.cur[0], U.cur[1]);
+  renderBoard();
+});
+
+el.relics.addEventListener('click', e => {
+  const b = e.target.closest('.rel');
+  if (!b || !G) return;
+  const rel = G.relics[+b.dataset.rel];
+  if (rel){ const R = RELICS[rel.id]; setInfo(`<b>${R.n}:</b> ${R.d}${rel.id === 'lehrling' && rel.n ? ` Aktuell +${rel.n}.` : ''}`); }
+  else setInfo('Freier Platz. Werkzeuge kaufst du nach jedem Auftrag im Werkstatt-Laden.');
+});
+el.tools.addEventListener('click', e => {
+  const b = e.target.closest('[data-tool]');
+  if (!b || !G) return;
+  const k = +b.dataset.tool;
+  if (!G.tools[k]){ setInfo('Freier Platz. Kniffe gibt es im Werkstatt-Laden, jeder wirkt einmal.'); return; }
+  if (G.boss === 'trocken'){ setInfo('<b>Trockene Fuge:</b> In diesem Auftrag sind keine Kniffe erlaubt.', true); return; }
+  armTool(k);
+});
+el.stageBtn.addEventListener('click', () => {
+  if (!G) return;
+  if (G.boss) setInfo(`<b>${BOSSES[G.boss].n}:</b> ${BOSSES[G.boss].d}`);
+  else setInfo(`Ziel: ${fmt(G.target)} Punkte. Nächstes Meisterstück: Auftrag ${nextBossStage()}.`);
+});
+el.shuffle.addEventListener('click', doShuffle);
+el.menu.addEventListener('click', () => { if (!G || U.busy) return; U.menu = true; U.confirm = null; renderOverlay(); });
+
+document.addEventListener('pointerdown', () => { U.kbd = false; }, true);
+document.addEventListener('keydown', e => {
+  U.kbd = true;
+  if (!el.ov.hidden){
+    if (e.key === 'Escape'){
+      if (U.help){ U.help = false; renderOverlay(); }
+      else if (U.menu){ U.menu = false; renderOverlay(); }
+    }
+    return;
+  }
+  if (!canInteract()) return;
+  if (e.key >= '1' && e.key <= '3'){ selectSlot(+e.key - 1); e.preventDefault(); return; }
+  if (e.key === 'm' || e.key === 'M'){ doShuffle(); return; }
+  if (e.key === 'Escape'){ U.sel = null; U.tool = null; U.preview = null; U.info = null; renderAll(); return; }
+  if (U.sel == null) return;
+  const mv = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] }[e.key];
+  if (mv){ moveCursor(mv[0], mv[1]); e.preventDefault(); return; }
+  if ((e.key === 'Enter' || e.key === ' ') && U.preview && U.preview.ok){ e.preventDefault(); doPlace(U.sel, U.preview.r, U.preview.c); }
+});
+
+/* ================= Start ================= */
+function validRun(g){
+  return g && g.v === 1 && Array.isArray(g.board) && g.board.length === N * N && Array.isArray(g.tray) && Array.isArray(g.relics) &&
+    g.relics.every(r => RELICS[r.id]) && Array.isArray(g.tools) && g.tools.every(id => TOOLS[id]);
+}
+function boot(data){
+  if (data && validRun(data.G)){ G = data.G; U.screen = data.screen === 'title' ? 'title' : null; }
+  else { const g = store.get(SAVE_KEY, null); G = validRun(g) ? g : null; U.screen = 'title'; }
+  if (G && G.phase === 'play' && G.tray.every(x => !x)){ if (!drawTray()) G.phase = 'intro'; }
+  layout(); renderAll();
+}
+if ('ResizeObserver' in window) new ResizeObserver(() => { layout(); if (G) renderTray(); }).observe(el.wrap);
+window.addEventListener('resize', () => { layout(); if (G) renderTray(); });
+
+try { window.claude && window.claude.hot && window.claude.hot.snapshot && window.claude.hot.snapshot(() => ({ G, screen: U.screen })); } catch (e) {}
+
+// Für Tests und Balancing
+window.KW = {
+  get G(){ return G; }, set G(v){ G = v; },
+  SHAPES, RELICS, TOOLS, BOSSES, TARGETS, BASE_BUDGET,
+  newRun, setupStage, beginStage, applyPlacement, fits, anyFit, fullLines, drawTray, freshTray, piecesLeft, statusOf, targetFor, rotatePiece,
+  render: renderAll, U
+};
+
+const hot = window.claude && window.claude.hot;
+if (hot && hot.ready) hot.ready(boot); else boot((hot && hot.data) || {});
+})();
+</script>
+<!-- INHALT-ENDE -->
+</body>
+</html>
