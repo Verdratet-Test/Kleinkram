@@ -1,6 +1,6 @@
 # Kleinkram – Aufbau
 
-Kleinkram ist eine Web-App (HTML, CSS, JavaScript ohne Framework), die mit **Capacitor 7** als Android-App verpackt wird. Dieselben Dateien laufen auch als Web-App über GitHub Pages.
+Kleinkram ist eine Web-App (HTML, CSS, JavaScript ohne Framework), die mit **Capacitor 7** als Android-App verpackt wird. Dieselben Dateien laufen auch als Web-App über GitHub Pages und Cloudflare.
 
 ## Ordner
 | Ordner / Datei | Inhalt |
@@ -61,3 +61,12 @@ Für gemeinsame Bereiche (Partnerin, Mutter) mit Rechten pro Person: Raspberry P
 - **Galerie-/Kamerafotos:** `ScanPlugin.begradigen` sucht das Blatt (OpenCV: Kanten, Helligkeit, Farbsättigung → größtes Viereck) und entzerrt es; nur wenn es sich klar vom Untergrund abhebt.
 - **Wecker-Ort:** `ScanPlugin.ortPruefen` – Graubild, Helligkeit strecken + CLAHE (dunkles Zimmer), SIFT-Punkte, Paare per Ratio-Test, RANSAC-Probe (Homographie ≥ 16 passende Punkte oder Fundamentalmatrix ≥ 28). In Tests: fremde Motive höchstens 7/10, dieselbe Stelle 60–600.
 - **Probe-Bau:** Branch pushen und `gh workflow run app-bauen.yml --ref <branch>` baut nur die APK; Release und Web-App gibt es ausschließlich von `main`.
+
+
+## Web-App auf Cloudflare
+
+- `wrangler.jsonc`: Cloudflare Worker „kleinkram“, liefert nur die statischen Dateien aus `www/` aus (kein Server-Code, keine Datenbank).
+- `scripts/web-build.mjs` (`npm run web:build`): kopiert jsQR, qrcode und capacitor.js nach `www/lib`. Wird auch vom APK-Bau benutzt.
+- `www/_headers`: Sicherheits-Header; `sw.js` und die Startseite werden nie lange zwischengespeichert, damit Updates sofort ankommen.
+- Einrichtung im Cloudflare-Dashboard: Workers & Pages → Anwendung erstellen → GitHub → Repo `Kleinkram`. Build-Befehl `npm install && npm run web:build`, Deploy-Befehl `npx wrangler deploy`. Danach baut Cloudflare bei jedem Push auf `main` neu.
+- Alle Daten bleiben im Browser (localStorage/IndexedDB). Cloudflare sieht keine Einträge.

@@ -5,15 +5,19 @@
   "description": "Kleinkram – Organizer gegen Aufschieben",
   "dependencies": {
     "@capacitor/android": "^7.0.0",
+    "@capacitor/app": "^7.0.0",
     "@capacitor/cli": "^7.0.0",
     "@capacitor/core": "^7.0.0",
-    "jsqr": "1.4.0",
-    "qrcode-generator": "1.4.4",
     "@capacitor/filesystem": "^7.0.0",
     "@capacitor/haptics": "^7.0.0",
     "@capacitor/local-notifications": "^7.0.0",
     "@capacitor/share": "^7.0.0",
-    "@capacitor/app": "^7.0.0",
-    "@capacitor/status-bar": "^7.0.0"
+    "@capacitor/status-bar": "^7.0.0",
+    "jsqr": "1.4.0",
+    "qrcode-generator": "1.4.4"
+  },
+  "scripts": {
+    "web:build": "node scripts/web-build.mjs",
+    "deploy": "npm run web:build && npx wrangler@4 deploy"
   }
 }

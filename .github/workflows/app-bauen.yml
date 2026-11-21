@@ -33,11 +33,7 @@ jobs:
         run: npm install --no-audit --no-fund
 
       - name: Bibliotheken einbinden
-        run: |
-          mkdir -p www/lib
-          cp node_modules/jsqr/dist/jsQR.js www/lib/jsQR.js
-          cp node_modules/qrcode-generator/qrcode.js www/lib/qrcode.js
-          cp node_modules/@capacitor/core/dist/capacitor.js www/lib/capacitor.js
+        run: npm run web:build
 
       - name: Android-Projekt erzeugen
         run: |

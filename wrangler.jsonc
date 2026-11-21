@@ -1,0 +1,9 @@
+{
+  // Kleinkram als Web-App auf Cloudflare (Workers mit statischen Dateien, kein Server-Code).
+  // Daten bleiben im Browser des Nutzers – Cloudflare liefert nur die Dateien aus.
+  "name": "kleinkram",
+  "compatibility_date": "2026-11-21",
+  "assets": {
+    "directory": "./www"
+  }
+}
