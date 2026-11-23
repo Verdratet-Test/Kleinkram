@@ -7,8 +7,6 @@ on:
 
 permissions:
   contents: write
-  pages: write
-  id-token: write
 
 concurrency:
   group: app-bauen
@@ -83,26 +81,3 @@ jobs:
           body: "Zum Installieren: Kleinkram.apk auf dem Handy herunterladen und öffnen."
           files: Kleinkram.apk
           make_latest: true
-
-      - name: Web-App vorbereiten
-        if: github.ref == 'refs/heads/main'
-        uses: actions/configure-pages@v5
-        continue-on-error: true
-        with:
-          enablement: true
-
-      - uses: actions/upload-pages-artifact@v3
-        if: github.ref == 'refs/heads/main'
-        with:
-          path: www
-
-  web:
-    needs: build
-    if: github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deploy.outputs.page_url }}
-    steps:
-      - id: deploy
-        uses: actions/deploy-pages@v4

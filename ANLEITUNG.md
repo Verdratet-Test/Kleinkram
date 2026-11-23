@@ -1,14 +1,14 @@
 # Kleinkram auf GitHub – Anleitung
 
 Einmal einrichten, danach baut GitHub bei jeder Änderung automatisch:
-- die **APK** (immer neueste: `https://github.com/DEINNAME/kleinkram/releases/latest/download/Kleinkram.apk`)
-- die **Web-App** über https (`https://DEINNAME.github.io/kleinkram`)
+- die **APK** (unter **Releases** im Repo; bei privatem Repo nur angemeldet herunterladbar)
+- die **Web-App** baut Cloudflare (siehe Schritt 4)
 
 Am besten am PC. Dauert etwa 10 Minuten. Befehle brauchst du keine.
 
 ## 1. Repo anlegen
 1. Auf github.com anmelden → oben rechts **+** → **New repository**
-2. Name: `kleinkram` · Sichtbarkeit: **Public** · sonst nichts ankreuzen → **Create repository**
+2. Name: `kleinkram` · Sichtbarkeit: **Private** · sonst nichts ankreuzen → **Create repository**
 
 ## 2. Dateien hochladen
 1. `kleinkram-github.zip` entpacken.
@@ -27,8 +27,10 @@ Im Repo: **Settings → Secrets and variables → Actions → New repository sec
 
 Die Datei `GEHEIM-github-secrets.txt` **niemals** ins Repo hochladen.
 
-## 4. Web-App einschalten
-**Settings → Pages → Build and deployment → Source: GitHub Actions**
+## 4. Web-App auf Cloudflare
+Cloudflare-Dashboard → **Workers & Pages → Anwendung erstellen → GitHub**. Beim Verbinden **„Only select repositories“** → nur `kleinkram` erlauben.
+Projektname `kleinkram`, Build-Befehl `npm install && npm run web:build`, Deploy-Befehl `npx wrangler deploy`.
+Kein Cloudflare-Schlüssel bei GitHub nötig.
 
 ## 5. Bau starten
 **Actions → App bauen → Run workflow**. Nach etwa 5–8 Minuten ist alles grün.

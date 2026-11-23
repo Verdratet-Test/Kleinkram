@@ -1,6 +1,6 @@
 # Kleinkram – Aufbau
 
-Kleinkram ist eine Web-App (HTML, CSS, JavaScript ohne Framework), die mit **Capacitor 7** als Android-App verpackt wird. Dieselben Dateien laufen auch als Web-App über GitHub Pages und Cloudflare.
+Kleinkram ist eine Web-App (HTML, CSS, JavaScript ohne Framework), die mit **Capacitor 7** als Android-App verpackt wird. Dieselben Dateien laufen auch als Web-App über Cloudflare. Das Repo ist privat; GitHub baut nur noch die APK.
 
 ## Ordner
 | Ordner / Datei | Inhalt |
