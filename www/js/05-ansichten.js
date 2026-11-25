@@ -84,8 +84,9 @@ function vAufgaben(){let h=head('Aufgaben',`${openTasks().length} offen`)+tip('a
 function vAblage(){const y=UI.year;const years=[...new Set([new Date().getFullYear(),...S.docs.map(d=>+d.year)])].sort((a,b)=>b-a);const T=taxYear(y);
  let docs=S.docs.filter(d=>+d.year===y);if(UI.docFilter==='steuer')docs=docs.filter(d=>d.taxType&&d.taxType!=='none');if(UI.docFilter==='offen')docs=docs.filter(d=>d.kind==='rechnung'&&!d.paid);if(String(UI.docFilter).startsWith('obj:'))docs=docs.filter(d=>d.objId===UI.docFilter.slice(4));
  docs.sort((a,b)=>(b.date||'').localeCompare(a.date||''));
- const SEGS=[['belege','Belege'],['vertraege','Verträge'],['haus','Haus'],['garantie','Fristen']].filter(([k])=>k==='haus'?mod('haus'):mod('papier'));if(!SEGS.some(x=>x[0]===(UI.abl||'belege')))UI.abl=SEGS[0]?SEGS[0][0]:'belege';
+ const SEGS=[['belege','Belege'],['pdf','PDF'],['vertraege','Verträge'],['haus','Haus'],['garantie','Fristen']].filter(([k])=>k==='haus'?mod('haus'):mod('papier'));if(!SEGS.some(x=>x[0]===(UI.abl||'belege')))UI.abl=SEGS[0]?SEGS[0][0]:'belege';
  const seg=SEGS.length<2?'':`<div class="seg" style="margin-bottom:14px">${SEGS.map(([k,l])=>`<button class="${(UI.abl||'belege')===k?'on':''}" data-act="abl" data-k="${k}">${l}</button>`).join('')}</div>`;
+ if(UI.abl==='pdf'&&typeof vPdf==='function')return head('Ablage',`${(S.pdfs||[]).length} PDF${(S.pdfs||[]).length===1?'':'s'}`)+seg+vPdf();
  if(UI.abl==='vertraege')return head('Ablage',`${(S.contracts||[]).length} Verträge`)+seg+vVertraege();
  if(UI.abl==='haus')return head('Ablage',`${objs().length} Objekt${objs().length===1?'':'e'}`)+seg+vHaus();
  if(UI.abl==='garantie')return head('Ablage',`${(S.ablauf||[]).length} Ausweise · ${(S.warranties||[]).length} Garantien`)+seg+(typeof vAblauf==='function'?vAblauf():'')+vGarantie();

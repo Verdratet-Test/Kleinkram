@@ -126,7 +126,8 @@ function briefFile(L){return(L.betreff||'Brief').replace(/[^\wäöüÄÖÜß\- ]
 function briefOut(L,rec,extra){const bytes=pdfLetter(L),name=briefFile(L);
  sheet(`<h2>Brief ist fertig</h2>${briefPreview(L)}
  <div class="grid2"><button class="btn pri" id="boS">Teilen / Drucken</button><button class="btn" id="boD">Speichern</button></div>
+ ${typeof pdfFromBytes==='function'?'<button class="btn block" id="boU">✍️ Unterschreiben</button>':''}
  ${extra&&extra.cid?`<button class="btn block" id="boK">Vertrag als gekündigt markieren</button>`:''}${extra&&extra.frist?`<p class="small muted">Frist: ${fmtDate(extra.frist)}. Einspruch rechtzeitig abschicken – per Post, Fax oder über ELSTER („Einspruch“).</p>`:''}
  <p class="small muted">Tipp: Per Einschreiben verschicken oder Sendebeleg aufheben – und die Antwort später in der Ablage speichern.</p>`,s=>{
-  s.querySelector('#boS').onclick=()=>shareBin(name,bytes,'application/pdf');s.querySelector('#boD').onclick=()=>saveBin(name,bytes,'application/pdf');
+  s.querySelector('#boS').onclick=()=>shareBin(name,bytes,'application/pdf');s.querySelector('#boD').onclick=()=>saveBin(name,bytes,'application/pdf');const bu=s.querySelector('#boU');bu&&(bu.onclick=()=>pdfFromBytes(bytes,name,'brief'));
   const k=s.querySelector('#boK');k&&(k.onclick=()=>{const c=(S.contracts||[]).find(x=>x.id===extra.cid);if(c&&!c.cancelled){c.cancelled=true;c.cancelEnd=extra.zum||cInfo(c).end;S.tasks.filter(x=>x.cid===c.id&&!x.done).forEach(x=>x.done=today());pts(15,'Vertrag gekündigt')}save();render();toast('Als gekündigt markiert');k.remove()})})}

@@ -44,6 +44,7 @@ function vMehr(){const L=level();const nx=typeof wNextAll==='function'?wNextAll(
  const T=[[1,'kopf','🧠','Kopf leeren',ib?`${ib} zum Sortieren`:`${(S.notizen||[]).length} Notizen`],
   [mod('wecker'),'wecker','⏰','Wecker',nx?wFmtNext(nx.t):'Wecker stellen'],
   [mod('papier'),'brief','✉️','Briefe','Kündigung, Einspruch …'],
+  [mod('papier'),'pdfOpen','✍️','PDF & Unterschrift',(S.pdfs||[]).length?`${S.pdfs.length} PDF${S.pdfs.length===1?'':'s'}`:'Lesen, ausfüllen, unterschreiben'],
   [mod('papier'),'goFristen','🪪','Ausweise & Fristen',`${(S.ablauf||[]).length} Ausweise · ${(S.warranties||[]).length} Garantien`],
   [mod('haus'),'goHaus','🏠','Vermietung','Miete, Zähler, Nebenkosten'],
   [mod('gewerbe'),'gwOpen','💼','Gewerbe-Kasse',(()=>{if(typeof gwYear!=='function')return'Einnahmen & Ausgaben';const Y=gwYear(new Date().getFullYear());return`Gewinn ${eur(Y.gewinn)}`})()],
@@ -62,6 +63,7 @@ function plusTiles(){return`<div class="plus-or"><span>oder</span></div><div cla
  <label class="ptile" for="spCam"><span>📷</span><b>Foto</b><small>Rechnung, Brief, Dienstplan</small></label><label class="ptile" for="spGal"><span>🖼️</span><b>Aus Galerie</b><small>wird automatisch erkannt</small></label>
  <button class="ptile" data-act="kopf"><span>🧠</span><b>Kopf leeren</b><small>mehrere Gedanken</small></button>
  ${mod('gewerbe')?'<button class="ptile" data-act="gwPlus"><span>💼</span><b>Gewerbe-Beleg</b><small>Einnahme oder Ausgabe</small></button>':''}
+ ${mod('papier')?'<button class="ptile" data-act="pdfOpen"><span>✍️</span><b>PDF</b><small>ausfüllen & unterschreiben</small></button>':''}
  ${mod('papier')?'<button class="ptile" data-act="brief"><span>✉️</span><b>Brief</b><small>Kündigung & Co.</small></button>':''}
  ${mod('wecker')?'<button class="ptile" data-act="wecker"><span>⏰</span><b>Wecker</b><small>mit Aufgabe</small></button>':''}
  </div><input type="file" id="spCam" accept="image/*" capture="environment" hidden><input type="file" id="spGal" accept="image/*" hidden>`}

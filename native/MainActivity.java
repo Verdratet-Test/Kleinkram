@@ -21,4 +21,12 @@ public class MainActivity extends BridgeActivity {
             getWindow().addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         }
     }
+
+    /* PDF per „Öffnen mit“/„Teilen“, während Kleinkram schon läuft */
+    @Override
+    public void onNewIntent(android.content.Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        KleinkramNativePlugin.neuGeteilt();
+    }
 }

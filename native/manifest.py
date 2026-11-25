@@ -57,6 +57,28 @@ comp = '''
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/kk_widget_info" />
         </receiver>
 '''
+# PDFs: „Öffnen mit Kleinkram“ und „Teilen → Kleinkram“ (Datei wird nur gelesen)
+pdf_filter = '''
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="content" />
+                <data android:scheme="file" />
+                <data android:mimeType="application/pdf" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="application/pdf" />
+            </intent-filter>
+'''
+if 'android.intent.action.SEND' not in s:
+    i = s.find('.MainActivity"')
+    j = s.find('</activity>', i)
+    if i < 0 or j < 0:
+        sys.exit('MainActivity im Manifest nicht gefunden')
+    s = s[:j] + pdf_filter.lstrip('\n') + '        ' + s[j:]
 if '.WeckerReceiver' not in s:
     s = s.replace('</application>', comp + '    </application>', 1)
 open(p, 'w').write(s)
